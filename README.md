@@ -2,7 +2,7 @@ A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
 #### Author: Nathaniel Wong
-#### Version: 0.0.3-alpha
+#### Version: 0.0.2-alpha
 
 
 # Introduction
