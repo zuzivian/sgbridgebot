@@ -1,8 +1,8 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-Author: Nathaniel Wong
-Version: 0.0.2-alpha
+#### Author: Nathaniel Wong
+#### Version: 0.0.3-alpha
 
 
 # Introduction
@@ -14,30 +14,19 @@ a group chat setting. The bot will allow for one game session per group chat.
 
 # Rules of the Game
 
-See this wiki page for a general idea:
+See this wiki page for a general idea of the ruleset:
 https://en.wikipedia.org/wiki/Singaporean_bridge
 
 
-# Upcoming Features
+# Try the bot
 
-Anticipated features for v0.1-alpha:
-- Bot will work in group chats only
-- Able to leave or join games at will
-- Game will start when 4 players join
-- Players will use buttons to select their bid or pass
-- Players will be able to call a partner
-- Players will be dealt a hand at random
-- Players will use buttons to play a card when it is their turn
-- Game engine will only allow valid cards to be played
-- The idle timer will be set at 30s
-- Game ends when a partnership wins or a player leaves
-- When game ends, a new game can be started
+A link to the telegram bot will be posted once it's in production!
 
 
-# Documentation
+# Features and Documentation
 
-The bot is still in its development stage.
-More documentation will be provided closer to release.
+More documentation will be provided soon.
+Please see the wiki for more information about the bot's planned features: https://github.com/zuzivian/sgbridgebot/wiki/
 
 
 # MIT License
