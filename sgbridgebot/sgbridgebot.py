@@ -1,19 +1,17 @@
-# from telegram.ext import Updater, CommandHandler
-# from BridgeGame import BridgeGame
-# from GameManager import GameManager
 from ChatBot import ChatBot
 import logging
 
 '''
     sgbridgebot.py
 
-    Top-level bot script that initiates and starts a ChatBot() object.
+    Top-level bot script that initiates amd ChatBot() object and begins
+    serving requests.
 
-    ChatBot() handles all aspects of operating the telegram bot, including
+    ChatBot handles all aspects of operating the telegram bot, including
     interfacing with the python-telegram-bot API.
 
-    ChatBot().start runs a continual polling loop to check for updates from the
-    Telegram servers. ChatBot() will respond appropriately to user actions.
+    ChatBot.start() runs a continual polling loop to check for updates from the
+    Telegram servers. ChatBot will respond appropriately to user actions.
 '''
 
 
@@ -25,9 +23,7 @@ def main():
 
     # provide TOKEN to initiate ChatBot
     bot = ChatBot('608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
-
-    # provide 1 for idle on a production server
-    bot.start(0)
+    bot.start()
 
 
 if __name__ == "__main__":

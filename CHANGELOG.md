@@ -1,11 +1,17 @@
-# sgBridge changelog
-### Author: Nathaniel Wong
+# sgBridge CHANGELOF
 See README for further details about this project.
 
 ## How to maintain this changelog
 Add a section here for every commit that is made, in the following format: major.minor.patch-release[: build YYMMDD/HHMM]
 
 Build numbers are included in the alpha stage of development, and will be dropped eventually. For now time is in UTC-5.
+
+## 0.0.3-alpha: build 180531/0304
+Begin forming main game components
+- Added playable hands and cards
+- Full games (4/4 players) transition to dealing phase
+- Added ability to shuffle and deal deck of cards
+- Some support for adding bots to games
 
 ## 0.0.2-alpha: build 180526/1913
 Cleaning. Reorganized code on main script into chunks

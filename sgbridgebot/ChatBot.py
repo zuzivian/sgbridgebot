@@ -1,6 +1,7 @@
 from telegram.ext import Updater, CommandHandler
 from GameManager import GameManager
 from CommandUtils import CommandUtils
+from ChatHandler import ChatHandler
 
 class ChatBot(object):
 
@@ -15,22 +16,24 @@ class ChatBot(object):
     cmd_utils(CommandUtils)
 
     ARGS
-    init_start(int): idle
+    start(int): idle 0/1
     init_command_handlers()
 
     '''
 
 
     def __init__(self, token):
-        self.manager = GameManager()
         self.updater = Updater(token)
-        self.cmd_utils = CommandUtils(self.manager)
+        self.manager = GameManager()
+        self.chat_handler = ChatHandler(self.updater.bot)
+        self.cmd_utils = CommandUtils(self.manager, self.chat_handler)
 
 
-    def start(self, idle):
+    def start(self):
         self.init_command_handlers()
         self.updater.start_polling()
         self.updater.idle()
+
 
     def init_command_handlers(self):
         self.updater.dispatcher.add_handler(CommandHandler('hello', self.cmd_utils.hello))

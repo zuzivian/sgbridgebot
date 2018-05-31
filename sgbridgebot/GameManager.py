@@ -4,19 +4,20 @@ import logging
 
 class GameManager(object):
         """
-        Manages all instances of active BridgeGames
+        Manages all instances of waiting and active BridgeGame,
+        Manages player and bot events
 
         ATTRIBUTES
-        waiting_games
-        active_games
+        waiting_games (listof BridgeGame)
+        active_games (listof BridgeGame)
 
         ARGS
         create_game():
         destroy_game(uuid):
-        end_game(uuid):
-        join_game(player)
-        leave_game(player)
-        update_gamelists()
+        end_game(uuid): removes game from active_games list
+        join_game(player): returns BridgeGame if player able to join, else error code
+        leave_game(player): returns BridgeGame if player able to leave, else error code
+        update_gamelists(): when game state is changed, call to move games to appropriate lists
         """
 
         # Initial bot state contains empty game list
@@ -72,6 +73,7 @@ class GameManager(object):
                         game = g.remove_player(player, chat_id)
                         self.update_gamelists()
                         return game
+            return -1
 
         # scan list of games that need updating
         def update_gamelists(self):
