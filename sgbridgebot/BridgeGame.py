@@ -140,7 +140,6 @@ class BridgeGame(object):
                 self.get_next_bid()
         return
 
-<<<<<<< HEAD
     def get_partner_choice(self):
         if self.curr_player().is_bot:
             card_id = self.curr_player().make_auto_partner()
@@ -181,8 +180,6 @@ class BridgeGame(object):
             p.hand.sort(key=lambda c: c.id)
         return
 
-=======
->>>>>>> 8064d692a35a37d9bf025374828ad087327ab35f
     def process_bid(self, bid):
         if bid == -1:
             self.chat_handler.player_passed(self.curr_player(), self)
