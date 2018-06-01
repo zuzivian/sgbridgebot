@@ -5,6 +5,7 @@ import random
 class BridgePlayer(User):
 
     '''
+    Represents a single player of the game.
     '''
 
     def __init__(self, user=None, chat_id=None):
