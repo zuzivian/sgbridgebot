@@ -2,6 +2,7 @@
 
 from telegram import InlineKeyboardButton, ReplyKeyboardMarkup
 from StringUtils import StringUtils
+from BridgeCard import BridgeCard
 
 class ChatHandler(object):
 
@@ -58,3 +59,20 @@ class ChatHandler(object):
     def player_bid(self, bid, player, game):
         for chat_id in game.get_chat_ids():
             self.bot.send_message(chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid) + ' .')
+
+    def invalid_bid(self, player):
+        self.bot.send_message(player.chat_id, 'Invalid bid!')
+        self.request_bid(player)
+
+    def bid_winner(self, player, bid, game):
+        bid_str = self.str_utils.bid_id_to_str(bid)
+        for chat_id in game.get_chat_ids():
+            self.bot.send_message(chat_id, player.disp_name() + ' wins with bid ' + bid_str + '. Choosing partner...')
+
+    def partner_chosen(self, player, card_id, game):
+        card = BridgeCard(card_id)
+        for chat_id in game.get_chat_ids():
+            self.bot.send_message(chat_id, player.disp_name() + ' calls the holder of ' + str(6) + ' as partner.')
+            self.bot.send_message(chat_id, repr(card))
+            if chat_id == game.partner.chat_id:
+                self.bot.send_message(chat_id, 'You playing as the partner!')

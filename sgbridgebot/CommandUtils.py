@@ -93,7 +93,6 @@ class CommandUtils(object):
     def bidding(self, bot, update):
         # handles all text messgaes that have the format NUMBER|SUIT
         user = update.message.from_user
-        update.message.reply_text('Bid received.')
         game = self.manager.find_game(user, update.message.chat_id)
         bid_id = self.chat.str_utils.bid_str_to_id(update.message.text)
         if isinstance(game, BridgeGame):

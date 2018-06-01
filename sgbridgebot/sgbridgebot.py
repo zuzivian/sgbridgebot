@@ -2,16 +2,16 @@ from ChatBot import ChatBot
 import logging
 
 '''
-    sgbridgebot.py
+sgbridgebot.py
 
-    Top-level bot script that initiates amd ChatBot() object and begins
-    serving requests.
+Top-level bot script that initiates amd ChatBot() object and begins
+serving requests.
 
-    ChatBot handles all aspects of operating the telegram bot, including
-    interfacing with the python-telegram-bot API.
+ChatBot handles all aspects of operating the telegram bot, including
+interfacing with the python-telegram-bot API.
 
-    ChatBot.start() runs a continual polling loop to check for updates from the
-    Telegram servers. ChatBot will respond appropriately to user actions.
+ChatBot.start() runs a continual polling loop to check for updates from the
+Telegram servers. ChatBot will respond appropriately to user actions.
 '''
 
 

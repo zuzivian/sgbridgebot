@@ -8,7 +8,7 @@ class StringUtils(object):
 
     def __init__(self):
         self.type = None
-        self.suit_str = [u'\U00002663', u'\U00002666', u'\U00002665', u'\U00002660']
+        self.suit_str = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660']
 
     def player_name(self, player):
         return player.username if player.username else player.first_name
@@ -52,6 +52,6 @@ class StringUtils(object):
 
     def bid_id_to_str(self, id):
         bid = (id/5) + 1
-        s = id % 5 - 1
+        s = (id % 5)
         suit = self.suit_str[s] if s != 4 else 'NT'
         return unicode(bid)+suit

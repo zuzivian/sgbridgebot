@@ -6,6 +6,13 @@ Add a section here for every commit that is made, in the following format: major
 
 Build numbers are included in the alpha stage of development, and will be dropped eventually. For now time is in UTC+5.
 
+## 0.0.5-alpha: build 180601/0221
+Fully implemented bidding system
++ bots can now choose their partner
++ bots now randomly choose a bid
++ one pass around ends bidding phase
+
+
 ## 0.0.4-alpha: build 180531/2216
 Partially implemented bidding system
 + Using keyboard markup to provide bidding options
