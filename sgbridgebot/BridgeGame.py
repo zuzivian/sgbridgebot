@@ -79,8 +79,31 @@ class BridgeGame(object):
             self.start_game()
         return 1
 
+    def deal_hands(self):
+        '''
+        Shuffles and deals cards to each player.
+        '''
+        # Makes cards a random list of BridgeCards.
+        card_nums = range(52)
+        random.shuffle(card_nums)
+        cards = []
+        for id in card_nums:
+            cards.append(BridgeCard(id))
+        for p in self.players:
+            p.hand = []
+        # Deal cards, cycling between players.
+        for r in range(13):
+            for p in range(4):
+                self.players[p].hand.append(cards[4*r+p])
+        # Sort each player's hand by card ID.
+        for p in self.players:
+            p.hand.sort(key=lambda c: c.id)
+        return
+
     def start_game(self):
-        #starts the game
+        '''
+        Takes a game instance and deals cards to each player.
+        '''
         self.state = 1
         self.chat_handler.starting_game(self)
         #give each player a direction
@@ -88,6 +111,7 @@ class BridgeGame(object):
         for p in self.players:
             p.give_direction(dirs)
             dirs += 1
+        # Deal cards and ensure there is no wash.
         wash = True
         while wash:
             wash = False
@@ -116,6 +140,7 @@ class BridgeGame(object):
                 self.get_next_bid()
         return
 
+<<<<<<< HEAD
     def get_partner_choice(self):
         if self.curr_player().is_bot:
             card_id = self.curr_player().make_auto_partner()
@@ -156,6 +181,8 @@ class BridgeGame(object):
             p.hand.sort(key=lambda c: c.id)
         return
 
+=======
+>>>>>>> 8064d692a35a37d9bf025374828ad087327ab35f
     def process_bid(self, bid):
         if bid == -1:
             self.chat_handler.player_passed(self.curr_player(), self)

@@ -5,7 +5,7 @@ import random
 class BridgePlayer(User):
 
     '''
-    Extends telegram.user
+    Extends telegram.user and represents a single player of the game.
 
     ATTRIBUTES
     is_bot (bool)
