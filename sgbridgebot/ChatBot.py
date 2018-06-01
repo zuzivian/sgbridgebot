@@ -37,7 +37,6 @@ class ChatBot(object):
         self.updater.start_polling()
         self.updater.idle()
 
-
     def init_regex_handlers(self):
         self.updater.dispatcher.add_handler(RegexHandler('^(PASS|(1|2|3|4|5|6|7)('+"|".join([u'\U00002663',u'\U00002666',u'\U00002764',u'\U00002660','NT'])+'))$', self.cmd_utils.bidding))
 
