@@ -16,17 +16,19 @@ class GameManager(object):
         destroy_game(uuid):
         end_game(uuid): removes game from active_games list
         join_game(player): returns BridgeGame if player able to join, else error code
+        find_game(player, chat_id):
         leave_game(player): returns BridgeGame if player able to leave, else error code
         update_gamelists(): when game state is changed, call to move games to appropriate lists
         """
 
         # Initial bot state contains empty game list
-        def __init__(self):
+        def __init__(self, handler):
             self.waiting_games = []
             self.active_games = []
+            self.chat_handler = handler
 
-        def create_game(self, num_bots=0):
-            g = BridgeGame(num_bots)
+        def create_game(self, type, num_bots=0):
+            g = BridgeGame(self.chat_handler, type, num_bots)
             self.waiting_games.append(g)
             return g
 
@@ -47,28 +49,49 @@ class GameManager(object):
                 if game_id == g.id:
                     self.active_games.remove(g)
 
-        def join_game(self, player, chat_id, game_id=None):
-            if game_id:
+        def join_game(self, player, chat):
+            game_state = None
+            if chat.type != 'private':
+                found = 0
                 for g in self.waiting_games:
-                    if game_id == g.id:
-                        game = g.add_player(player, chat_id)
+                    if chat.id in [p.chat_id for p in g.players] and g.type == 1:
+                        found = 1
+                        break
+                if not found: g = self.create_game(1)
+                game_state = g.add_player(player, chat.id)
+                self.update_gamelists()
+                return game_state
             else:
                 # add player to oldest waiting game
                 if not len(self.waiting_games):
-                    self.create_game()
-                game = self.waiting_games[0].add_player(player, chat_id)
+                    self.create_game(0)
+                for g in self.waiting_games:
+                    if g.type == 0:
+                        game_state = g.add_player(player, chat.id)
             self.update_gamelists()
-            return game
+            if game_state is None:
+                return -1
+            else:
+                return game_state
+
+        def find_game(self, player, chat_id):
+            for g in self.waiting_games:
+                if player.id in [p.id for p in g.players] and chat_id in [p.chat_id for p in g.players]:
+                    return g
+            for g in self.active_games:
+                if player.id in [p.id for p in g.players] and chat_id in [p.chat_id for p in g.players]:
+                    return g
+            return None
 
         def leave_game(self, player, chat_id):
             for g in self.waiting_games:
-                for cid in g.player_chat_ids:
+                for cid in [p.chat_id for p in g.players]:
                     if chat_id == cid:
                         game = g.remove_player(player, chat_id)
                         self.update_gamelists()
                         return game
             for g in self.active_games:
-                for cid in g.player_chat_ids:
+                for cid in [p.chat_id for p in g.players]:
                     if chat_id == cid:
                         game = g.remove_player(player, chat_id)
                         self.update_gamelists()
@@ -79,11 +102,15 @@ class GameManager(object):
         def update_gamelists(self):
             # move full games to active list
             for g in self.waiting_games:
-                if g.num_players == 4:
+                if g.num_players() == 4:
                     self.start_game(g.id)
-                if g.num_players == 0:
+                if g.num_players() == 0:
                     self.destroy_game(g.id)
-            # remove games that have ended or no longer have players
+            # remove games that no longer have real players
             for g in self.active_games:
-                if g.num_players == 0 or g.state < 0:
+                users = 0
+                for p in g.players:
+                    if not p.is_bot:
+                        users += 1
+                if users == 0:
                     self.end_game(g.id)

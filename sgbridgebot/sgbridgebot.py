@@ -16,7 +16,6 @@ import logging
 
 
 def main():
-
     # python-telegram-bot provides logging features for debugging purposes
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.DEBUG)
