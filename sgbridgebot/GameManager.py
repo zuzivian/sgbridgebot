@@ -51,9 +51,18 @@ class GameManager(object):
 
         def join_game(self, player, chat):
             game_state = None
+            # don't allow joining if already in a game
+            game = self.find_game(player, chat)
+            if isinstance(game, BridgeGame):
+                return -2
+            # allow friends in group chat to join group game
             if chat.type != 'private':
                 found = 0
                 for g in self.waiting_games:
+                    if chat.id in [p.chat_id for p in g.players] and g.type == 1:
+                        found = 1
+                        break
+                for g in self.active_games:
                     if chat.id in [p.chat_id for p in g.players] and g.type == 1:
                         found = 1
                         break

@@ -50,13 +50,12 @@ class StringUtils(object):
         return suit + 5*(int(text[0])-1)
 
     def bid_id_to_str(self, id):
-        bid = (id/5) + 1
+        bid = id//5 + 1
         s = (id % 5)
         suit = self.suit_str[s] if s != 4 else 'NT'
-        return unicode(bid)+suit
+        return str(bid)+suit
 
     def card_str_to_id(self, text):
-        text.encode('UTF8')
         for suit in range(4):
             if text[0] in self.suit_str[suit]:
                 break
@@ -68,6 +67,8 @@ class StringUtils(object):
             rank = 13
         elif text[1] == 'A':
             rank = 14
+        elif len(text) == 3:
+            rank = 10
         else:
             rank = int(text[1])
         return suit*13 + rank-2

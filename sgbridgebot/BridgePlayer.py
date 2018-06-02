@@ -35,6 +35,8 @@ class BridgePlayer(User):
         self.chat_id = chat_id
         self.hand = []
         self.direction = 0
+        self.id = 0
+        self.tricks_won = 0
         if self.is_bot:
             self.player_to_bot()
         else:
@@ -48,6 +50,8 @@ class BridgePlayer(User):
         self.chat_id = None
         self.first_name = 'BotPlayer' + str(random.randint(100,999))
         self.username = None
+        self.id = -self.direction
+
 
     def player_to_user(self, user):
         self.id = user.id
@@ -85,6 +89,7 @@ class BridgePlayer(User):
         for c in self.hand:
             if c.suit == suit:
                 matches.append(c)
+        matches.sort(key=lambda c: c.id)
         return matches
 
     def get_top_card_in_suit(self, suit):
@@ -110,12 +115,31 @@ class BridgePlayer(User):
             return -1
         else:
             # can't go above 7NT
-            return min(34, contract + random.randint(1, 4))
+            suit = self.get_best_suit()
+            bid = -1
+            if (contract%5 < suit):
+                bid = contract - contract%5 + suit
+            elif (contract%5 > suit):
+                bid = contract - contract%5 + suit + 5
+            return min(34, bid)
 
     def make_auto_partner(self):
         #TODO: implement partner choosing algorithm for bot
         suit = self.get_best_suit()
+        cards = self.get_all_suit(suit)
         for rank in reversed(range(2,15)):
-            if rank not in [c.rank for c in self.get_all_suit(suit)]:
+            if rank not in [c.rank for c in cards]:
                 break
-        return rank + suit*13
+        return rank-2 + suit*13
+
+    def play_auto_card(self, trick):
+        if len(self.hand) == 0:
+            return None
+        random_card = random.randint(0,len(self.hand)-1)
+        return self.hand.pop(random_card)
+
+    def remove_card(self, card):
+        for c in self.hand:
+            if c.id == card.id:
+                self.hand.remove(c)
+        return

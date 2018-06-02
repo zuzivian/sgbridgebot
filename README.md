@@ -1,7 +1,7 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-#### Author: Nathaniel Wong | Version: 0.0.5-alpha
+#### Author: Nathaniel Wong | Version: 0.0.6-alpha
 
 
 # Introduction
@@ -19,8 +19,7 @@ https://en.wikipedia.org/wiki/Singaporean_bridge
 
 # Try the bot
 
-A link to the telegram bot will be posted once it's in production!
-
+Link to telegram bot: http://t.me/sgbridgebot
 
 # Features and Documentation
 

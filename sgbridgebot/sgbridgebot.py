@@ -1,28 +1,27 @@
+#!/usr/bin/env python3
+
 from ChatBot import ChatBot
 import logging
+import os
 
-'''
-sgbridgebot.py
+    '''
+    sgbridgebot.py
 
-Top-level bot script that initiates amd ChatBot() object and begins
-serving requests.
+    Top-level bot script that initiates amd ChatBot() object and begins
+    serving requests via webhook.
 
-ChatBot handles all aspects of operating the telegram bot, including
-interfacing with the python-telegram-bot API.
-
-ChatBot.start() runs a continual polling loop to check for updates from the
-Telegram servers. ChatBot will respond appropriately to user actions.
-'''
+    WARNING: DO NOT USE THIS FOR TESTING. Instead, please use
+    '''
 
 
 def main():
     # python-telegram-bot provides logging features for debugging purposes
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                        level=logging.DEBUG)
+                        level=logging.INFO)
 
     # provide TOKEN to initiate ChatBot
     bot = ChatBot('608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
-    bot.start()
+    bot.start(0)
 
 
 if __name__ == "__main__":

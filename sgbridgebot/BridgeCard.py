@@ -42,7 +42,7 @@ class BridgeCard(object):
             raise Exception('BridgeCard(): id is not valid (0-51)')
         self.id = id
         self.rank = id % 13 + 2
-        self.suit = id / 13
+        self.suit = id // 13
 
     def __repr__(self):
         return self.get_suit() + self.get_rank()
@@ -51,7 +51,7 @@ class BridgeCard(object):
         return self.id
 
     def get_rank(self):
-        return BridgeCard.CARD_VALUES[self.rank].encode('utf-8')
+        return BridgeCard.CARD_VALUES[self.rank]
 
     def get_suit(self):
-        return BridgeCard.CARD_SUITS[self.suit].encode('utf-8')
+        return BridgeCard.CARD_SUITS[self.suit]

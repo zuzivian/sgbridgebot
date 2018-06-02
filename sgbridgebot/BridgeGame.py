@@ -13,7 +13,7 @@ class BridgeGame(object):
 
     ATTRIBUTES
     players (listof Telegram.User)
-    state (int): 0=setup; 1=auction; 2=call; 3=play; 4=scoring
+    state (int): 0=setup; 1=auction; 2=partner_call; 3=play; 4=scoring
 
     ARGS
     add_player(Telegram.User):
@@ -33,6 +33,14 @@ class BridgeGame(object):
         self.contract = -1 # winning bid
         self.bidder = None
         self.partner = None
+        self.trick = []
+        self.trick_start = None
+        self.tricks_played = 0
+        self.trump_broken = 0
+
+    '''
+    PLAYER RELATED
+    '''
 
     def num_players(self):
         return len(self.players)
@@ -79,12 +87,32 @@ class BridgeGame(object):
             self.start_game()
         return 1
 
+    def player_num(self, player):
+        for i in range(4):
+            if player is self.players[i]:
+                return i
+
+    def get_chat_ids(self):
+        chat_ids = []
+        for p in self.players:
+            if p.chat_id is not None and p.chat_id not in chat_ids:
+                chat_ids.append(p.chat_id)
+        return chat_ids
+
+    def player_listing(self):
+        return ", ".join([p.disp_name() for p in self.players])
+
+
+    '''
+    CARD RELATED
+    '''
+
     def deal_hands(self):
         '''
         Shuffles and deals cards to each player.
         '''
         # Makes cards a random list of BridgeCards.
-        card_nums = range(52)
+        card_nums = list(range(52))
         random.shuffle(card_nums)
         cards = []
         for id in card_nums:
@@ -99,6 +127,19 @@ class BridgeGame(object):
         for p in self.players:
             p.hand.sort(key=lambda c: c.id)
         return
+
+    def show_hands(self):
+        if (self.type == 1):
+            self.chat_handler.ask_private_chat(self)
+            return
+        for p in self.players:
+            self.chat_handler.display_hand(p)
+        return
+
+
+    '''
+    GAME STATE RELATED
+    '''
 
     def start_game(self):
         '''
@@ -126,6 +167,21 @@ class BridgeGame(object):
             self.chat_handler.request_bid(self.curr_player())
         return
 
+    def end_game(self):
+        self.state = 3
+        required_tricks = 7 + self.contract//5
+        bidder_tricks = self.bidder.tricks_won + self.partner.tricks_won
+        if (bidder_tricks > required_tricks):
+            # bidder and partner won the game
+            self.chat_handler.game_winners(0, self.bidder, self.partner, bidder_tricks, required_tricks, self)
+        else:
+            winning_team = self.players
+            winning_team.remove(self.bidder)
+            winning_team.remove(self.partner)
+            self.chat_handler.game_winners(1, winning_team[0], winning_team[1], bidder_tricks, required_tricks, self)
+        # end of game.. exiting..
+        self.players = []
+
     def curr_player(self):
         return self.players[self.turn]
 
@@ -138,20 +194,19 @@ class BridgeGame(object):
                 self.get_partner_choice()
             else:
                 self.get_next_bid()
+        elif (self.state == 2):
+            self.state = 3
+            self.trick_start = self.curr_player().direction - 1
+        if (self.state == 3):
+            #play logic
+            if len(self.trick) == 4:
+                self.decide_trick_winner()
+                self.tricks_played += 1
+            if self.tricks_played == 13:
+                self.end_game()
+                return
+            self.get_next_card()
         return
-
-    def get_partner_choice(self):
-        if self.curr_player().is_bot:
-            card_id = self.curr_player().make_auto_partner()
-            self.partner = self.player_holding_card(card_id)
-            #broadcast partner choice
-            self.chat_handler.partner_chosen(self.curr_player(), card_id, self)
-            return
-        else:
-            # request partner choice
-            self.chat_handler.display_hand(self.curr_player())
-            self.chat_handler.request_partner_choice(self.curr_player())
-            return
 
     def player_holding_card(self, card_id):
         for p in self.players:
@@ -159,28 +214,10 @@ class BridgeGame(object):
                 if card.id == card_id:
                     return p
 
-    def player_num(self, player):
-        for i in range(4):
-            if player is self.players[i]:
-                return i
 
-    def deal_hands(self):
-        # send list of cards to players' hands
-        card_nums = range(52)
-        random.shuffle(card_nums)
-        cards = []
-        for id in card_nums:
-            cards.append(BridgeCard(id))
-        for p in self.players:
-            p.hand = []
-        for r in range(13):
-            self.players[0].hand.append(cards[4*r+0])
-            self.players[1].hand.append(cards[4*r+1])
-            self.players[2].hand.append(cards[4*r+2])
-            self.players[3].hand.append(cards[4*r+3])
-        for p in self.players:
-            p.hand.sort(key=lambda c: c.id)
-        return
+    '''
+    BIDDING RELATED
+    '''
 
     def process_bid(self, bid):
         if bid == -1:
@@ -199,24 +236,67 @@ class BridgeGame(object):
 
     def get_next_bid(self):
         if not self.curr_player().is_bot:
-            self.chat_handler.display_hand(self.curr_player())
             self.chat_handler.request_bid(self.players[self.turn])
         else:
             bid = self.curr_player().make_auto_bid(self.contract)
             self.process_bid(bid)
         return
 
-    def show_hands(self):
-        for p in self.players:
-            self.chat_handler.display_hand(p)
+    '''
+    PARTNER CHOOSING
+    '''
+
+    def get_partner_choice(self):
+        if self.curr_player().is_bot:
+            card_id = self.curr_player().make_auto_partner()
+            self.partner = self.player_holding_card(card_id)
+            #broadcast partner choice
+            self.chat_handler.partner_chosen(self.curr_player(), card_id, self)
+            #update game state
+            self.next_turn()
+            return
+        else:
+            # request partner choice
+            self.chat_handler.display_hand(self.curr_player())
+            self.chat_handler.request_partner_choice(self.curr_player())
+            return
+
+    '''
+    GAME PLAY
+    '''
+    def decide_trick_winner(self):
+        # winner is p[0] by default for now
+        trump_suit = self.contract % 5
+        w = 0
+        leading_suit = self.trick[0].suit
+        best_suit = self.trick[0].suit
+        best_rank = self.trick[0].rank
+        for id in range(4):
+            c = self.trick[id]
+            if (c.suit == trump_suit and (best_suit != trump_suit or c.rank > best_rank)):
+                best_suit = c.suit
+                best_rank = c.rank
+                w = id
+            elif (c.suit == best_suit and c.rank > best_rank):
+                best_rank = c.rank
+                w = id
+        winner = (self.trick_start + w) % 4
+
+        self.players[winner].tricks_won += 1
+        # announce winner of trick with card
+        self.chat_handler.announce_trick(self.players[winner], self.trick[w], self)
+        # start next trick
+        self.turn = winner
+        self.trick_start = winner
+        self.trick = []
         return
 
-    def get_chat_ids(self):
-        chat_ids = []
-        for p in self.players:
-            if p.chat_id is not None and p.chat_id not in chat_ids:
-                chat_ids.append(p.chat_id)
-        return chat_ids
-
-    def player_listing(self):
-        return ", ".join([p.disp_name() for p in self.players])
+    def get_next_card(self):
+        if (self.curr_player().is_bot):
+            played_card = self.curr_player().play_auto_card(self.trick)
+            self.trick.append(played_card)
+            self.chat_handler.card_played(self.curr_player(), played_card, self)
+            self.next_turn()
+        else:
+            self.chat_handler.request_card(self.curr_player(), self)
+        return
