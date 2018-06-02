@@ -24,7 +24,7 @@ class BridgePlayer(User):
     get_cards(): get player's hand
     hand_score(): returns score of player's hand
     get_all_suit(suit): returns a list of BridgeCard that match the given suit
-    get_top_suit(suit): returns the highest valued BridgeCard that matches the suit
+    get_top_card_in_suit(suit): returns the highest valued BridgeCard that matches the suit
     make_auto_bid()
 
 
@@ -69,9 +69,9 @@ class BridgePlayer(User):
     def get_cards(self):
         return self.hand
 
-    def hand_score(self):
+    def hand_score(self, hand):
         score = 0
-        for c in self.hand:
+        for c in hand:
             if c.rank > 10:
                 score += c.rank - 10
         for s in range(4):
@@ -87,20 +87,35 @@ class BridgePlayer(User):
                 matches.append(c)
         return matches
 
-    def get_top_suit(self, suit):
+    def get_top_card_in_suit(self, suit):
         top = None
         for c in self.hand:
             if c.suit == suit and (top_card is None or c.rank > top.rank):
                 top = c
         return top
 
+    def get_best_suit(self):
+        suit = 0
+        score = 0
+        for s in range(4):
+            suit_score = self.hand_score(self.get_all_suit(s))
+            if  suit_score > score:
+                score = suit_score
+                suit = s
+        return suit
+
     def make_auto_bid(self, contract):
         # TODO: implement bidding algorithm for bot
-        if random.randint(0, (contract+2)^2) < self.hand_score()/3:
-            return contract + random.randint(1, 4)
-        else:
+        if contract > 33 or random.randint(0, (contract+2)^2) > self.hand_score(self.hand)/3:
             return -1
+        else:
+            # can't go above 7NT
+            return min(34, contract + random.randint(1, 4))
 
     def make_auto_partner(self):
         #TODO: implement partner choosing algorithm for bot
-        return random.randint(0, 51)
+        suit = self.get_best_suit()
+        for rank in reversed(range(2,15)):
+            if rank not in [c.rank for c in self.get_all_suit(suit)]:
+                break
+        return rank + suit*13

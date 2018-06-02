@@ -39,6 +39,8 @@ class ChatBot(object):
 
     def init_regex_handlers(self):
         self.updater.dispatcher.add_handler(RegexHandler('^(PASS|(1|2|3|4|5|6|7)('+"|".join([u'\U00002663',u'\U00002666',u'\U00002764',u'\U00002660','NT'])+'))$', self.cmd_utils.bidding))
+        self.updater.dispatcher.add_handler(RegexHandler('^('+"|".join([u'\U00002663',u'\U00002666',u'\U00002764',u'\U00002660'])+')(2|3|4|5|6|7|8|9|10|J|Q|K|A)$', self.cmd_utils.card))
+
 
     def init_command_handlers(self):
         self.updater.dispatcher.add_handler(CommandHandler('forcestart', self.cmd_utils.forcestart))

@@ -51,7 +51,7 @@ class BridgeCard(object):
         return self.id
 
     def get_rank(self):
-        return BridgeCard.CARD_VALUES[self.rank]
+        return BridgeCard.CARD_VALUES[self.rank].encode('utf-8')
 
     def get_suit(self):
-        return BridgeCard.CARD_SUITS[self.suit]
+        return BridgeCard.CARD_SUITS[self.suit].encode('utf-8')

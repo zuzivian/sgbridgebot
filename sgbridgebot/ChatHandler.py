@@ -52,6 +52,16 @@ class ChatHandler(object):
         self.bot.send_message(player.chat_id, 'Please select a bid:', reply_markup=reply_markup)
         return
 
+    def request_partner_choice(self, player):
+        keyboard = []
+        for x in range(13):
+            keyboard.append([])
+            for y in range(4):
+                keyboard[x].append( InlineKeyboardButton(repr(BridgeCard((12-x)+y*13))) )
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+        self.bot.send_message(player.chat_id, 'Please select a partner card:', reply_markup=reply_markup)
+        return
+
     def player_passed(self, player, game):
         for chat_id in game.get_chat_ids():
             self.bot.send_message(chat_id, player.disp_name() + ' passed.')
@@ -72,7 +82,6 @@ class ChatHandler(object):
     def partner_chosen(self, player, card_id, game):
         card = BridgeCard(card_id)
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, player.disp_name() + ' calls the holder of ' + str(6) + ' as partner.')
-            self.bot.send_message(chat_id, repr(card))
+            self.bot.send_message(chat_id, player.disp_name() + ' calls ' + repr(card) + ' as the partner card.')
             if chat_id == game.partner.chat_id:
                 self.bot.send_message(chat_id, 'You playing as the partner!')

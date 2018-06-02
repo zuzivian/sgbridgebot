@@ -38,7 +38,6 @@ class StringUtils(object):
             message += self.suit_str[suit] + ": "
             message += ",  ".join([c.get_rank() for c in cards])
             message += "\n"
-        message += "\nScore: " + str(player.hand_score())
         return message
 
     def bid_str_to_id(self, text):
@@ -55,3 +54,20 @@ class StringUtils(object):
         s = (id % 5)
         suit = self.suit_str[s] if s != 4 else 'NT'
         return unicode(bid)+suit
+
+    def card_str_to_id(self, text):
+        text.encode('UTF8')
+        for suit in range(4):
+            if text[0] in self.suit_str[suit]:
+                break
+        if text[1] == 'J':
+            rank = 11
+        elif text[1] == 'Q':
+            rank = 12
+        elif text[1] == 'K':
+            rank = 13
+        elif text[1] == 'A':
+            rank = 14
+        else:
+            rank = int(text[1])
+        return suit*13 + rank-2

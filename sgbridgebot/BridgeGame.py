@@ -117,7 +117,7 @@ class BridgeGame(object):
             wash = False
             self.deal_hands()
             for p in self.players:
-                if p.hand_score() < 4:
+                if p.hand_score(p.hand) < 4:
                     wash = True
         self.show_hands()
         self.turn = 0
@@ -149,6 +149,8 @@ class BridgeGame(object):
             return
         else:
             # request partner choice
+            self.chat_handler.display_hand(self.curr_player())
+            self.chat_handler.request_partner_choice(self.curr_player())
             return
 
     def player_holding_card(self, card_id):
@@ -197,6 +199,7 @@ class BridgeGame(object):
 
     def get_next_bid(self):
         if not self.curr_player().is_bot:
+            self.chat_handler.display_hand(self.curr_player())
             self.chat_handler.request_bid(self.players[self.turn])
         else:
             bid = self.curr_player().make_auto_bid(self.contract)

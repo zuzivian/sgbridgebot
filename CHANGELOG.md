@@ -6,6 +6,11 @@ Add a section here for every commit that is made, in the following format: major
 
 Build numbers are included in the alpha stage of development, and will be dropped eventually. For now time is in UTC+5.
 
+## 0.0.5-alpha: build 180602/0135
+Implemented partner choice
++ Players can choose their partner using inline keyboard
++ Fixed card values not displaying properly
+
 ## 0.0.5-alpha: build 180601/0221
 Fully implemented bidding system
 + bots can now choose their partner

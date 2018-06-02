@@ -101,3 +101,17 @@ class CommandUtils(object):
                 return
             game.process_bid(bid_id)
             return
+
+    def card(self, bot, update):
+        user = update.message.from_user
+        game = self.manager.find_game(user, update.message.chat_id)
+        card_str = update.message.text
+        if isinstance(game, BridgeGame):
+            if game.state == 2 and user.id == game.curr_player().id:
+                update.message.reply_text('Partner chosen.')
+                card_id = self.chat.str_utils.card_str_to_id(card_str)
+                game.partner = game.player_holding_card(card_id)
+                self.chat.partner_chosen(game.curr_player(), card_id, game)
+            elif game.state == 3 and user.id == game.curr_player().id:
+                update.message.reply_text('You played a card.')
+        return
