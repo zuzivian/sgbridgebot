@@ -28,7 +28,7 @@ class ChatBot(object):
 
 
     def __init__(self, token):
-        self.updater = Updater(token)
+        self.updater = Updater(token, request_kwargs={'read_timeout': 10, 'connect_timeout': 10})
         self.token = token
         self.chat_handler = ChatHandler(self.updater.bot)
         self.manager = GameManager(self.chat_handler)
