@@ -45,7 +45,7 @@ class ChatBot(object):
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=PORT,
                                   url_path=self.TOKEN)
-            self.updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + TOKEN)
+            self.updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + self.TOKEN)
             self.updater.idle()
 
     def init_regex_handlers(self):
