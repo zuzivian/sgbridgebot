@@ -41,7 +41,7 @@ class ChatBot(object):
             self.updater.start_polling()
             self.updater.idle()
         else:
-            PORT = int(os.environ.get('PORT', '8443'))
+            PORT = int(os.environ.get('PORT'))
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=PORT,
                                   url_path=self.TOKEN)
