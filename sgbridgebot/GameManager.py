@@ -52,7 +52,7 @@ class GameManager(object):
         def join_game(self, player, chat):
             game_state = None
             # don't allow joining if already in a game
-            game = self.find_game(player, chat)
+            game = self.find_game(player, chat.id)
             if isinstance(game, BridgeGame):
                 return -2
             # allow friends in group chat to join group game

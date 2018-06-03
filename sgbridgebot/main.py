@@ -20,7 +20,7 @@ def main():
 
     # provide TOKEN to initiate ChatBot
     bot = ChatBot('608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
-    bot.start(0)
+    bot.start(0) # 0 for webhook
 
 
 if __name__ == "__main__":
