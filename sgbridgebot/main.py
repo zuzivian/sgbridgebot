@@ -20,7 +20,7 @@ def main():
 
     # provide TOKEN to initiate ChatBot
     bot = ChatBot('608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
-    bot.start(1)
+    bot.start(0)
 
 
 if __name__ == "__main__":
