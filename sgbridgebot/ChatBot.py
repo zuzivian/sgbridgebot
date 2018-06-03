@@ -37,7 +37,7 @@ class ChatBot(object):
         self.init_command_handlers()
         self.init_regex_handlers()
 
-        if poll:
+        if poll == 1:
             self.updater.start_polling()
             self.updater.idle()
         else:
