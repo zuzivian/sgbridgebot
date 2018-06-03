@@ -129,7 +129,7 @@ class ChatHandler(object):
             disp_name = '@'+player.username
         else:
             disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
-        self.bot.send_message(player.chat_id, disp_name + ', please choose a card to play.', reply_markup=reply_markup)
+        self.bot.send_message(player.chat_id, player.disp_name() + ', please choose a card to play.', parse_mode='Markdown', reply_markup=reply_markup)
 
 
     def card_played(self, player, card, game):
