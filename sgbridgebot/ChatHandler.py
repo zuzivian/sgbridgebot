@@ -128,7 +128,7 @@ class ChatHandler(object):
         if player.username is not None:
             disp_name = '@'+player.username
         else:
-            disp_name = '['+player.first_name+'](mention:'+player.id+')'
+            disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
         self.bot.send_message(player.chat_id, disp_name + ', please choose a card to play.', reply_markup=reply_markup)
 
 
