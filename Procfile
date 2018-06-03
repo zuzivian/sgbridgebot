@@ -1,1 +1,1 @@
-web: python sgbridgebot/main.py
+worker: python sgbridgebot/main.py
