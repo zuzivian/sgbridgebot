@@ -3,19 +3,6 @@
 from ChatBot import ChatBot
 import logging
 
-'''
-localtestbot.py
-
-Top-level bot script that initiates amd ChatBot() object and begins
-serving requests via long polling, for testing purposes.
-
-ChatBot handles all aspects of operating the telegram bot, including
-interfacing with the python-telegram-bot API.
-
-ChatBot.start() runs a continual polling loop to check for updates from the
-Telegram servers. ChatBot will respond appropriately to user actions.
-'''
-
 
 def main():
     # python-telegram-bot provides logging features for debugging purposes
