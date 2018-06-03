@@ -27,7 +27,7 @@ class ChatBot(object):
 
     def __init__(self, token):
         self.updater = Updater(token)
-        self.TOKEN = token
+        self.token = token
         self.chat_handler = ChatHandler(self.updater.bot)
         self.manager = GameManager(self.chat_handler)
         self.cmd_utils = CommandUtils(self.manager, self.chat_handler)
@@ -41,11 +41,12 @@ class ChatBot(object):
             self.updater.start_polling()
             self.updater.idle()
         else:
+            TOKEN = self.token
             PORT = int(os.environ.get('PORT'))
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=PORT,
-                                  url_path=self.TOKEN)
-            self.updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + self.TOKEN)
+                                  url_path=TOKEN)
+            self.updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + TOKEN)
             self.updater.idle()
 
     def init_regex_handlers(self):
