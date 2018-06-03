@@ -42,7 +42,7 @@ class ChatBot(object):
             self.updater.idle()
         else:
             TOKEN = self.token
-            PORT = int(os.environ.get('PORT'))
+            PORT = int(os.environ.get('PORT', '8443'))
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=PORT,
                                   url_path=TOKEN)
