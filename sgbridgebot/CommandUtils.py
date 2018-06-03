@@ -129,7 +129,7 @@ class CommandUtils(object):
             elif game.state == 3 and user.id == game.curr_player().id:
                 # Played a card, update game state
                 card = BridgeCard(card_id)
-                if card.id in [c.id for c in game.curr_player().hand]:
+                if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
                     update.message.reply_text('You played a card.')
                     game.curr_player().remove_card(card)
                     game.trick.append(card)

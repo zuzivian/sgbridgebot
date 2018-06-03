@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from telegram.error import (TelegramError, Unauthorized, BadRequest,
+                            TimedOut, ChatMigrated, NetworkError)
 from telegram.ext import Updater, CommandHandler, RegexHandler
 from GameManager import GameManager
 from CommandUtils import CommandUtils
@@ -33,6 +35,13 @@ class ChatBot(object):
         self.cmd_utils = CommandUtils(self.manager, self.chat_handler)
 
 
+
+    def error_callback(self, bot, update, error):
+        try:
+            raise error
+        except TimedOut:
+            print("Timed out error")
+
     def start(self, poll):
         self.init_command_handlers()
         self.init_regex_handlers()
@@ -59,3 +68,4 @@ class ChatBot(object):
         self.updater.dispatcher.add_handler(CommandHandler('join', self.cmd_utils.join))
         self.updater.dispatcher.add_handler(CommandHandler('leave', self.cmd_utils.leave))
         self.updater.dispatcher.add_handler(CommandHandler('hand', self.cmd_utils.hand))
+        self.updater.dispatcher.add_error_handler(self.error_callback)

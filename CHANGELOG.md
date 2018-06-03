@@ -6,6 +6,13 @@ Add a section here for every commit that is made, in the following format: major
 
 Build numbers are included in the alpha stage of development, and will be dropped eventually. For now time is in UTC+5.
 
+
+## 0.0.7-alpha: build 180602/1841
+Bot intelligence upgraded
++ Bots now play reasonably well (beginning human)
++ Players now must observe game rules (breaking trump etc)
++ Stability improvements and bug fixes
+
 ## 0.0.6-alpha: build 180602/1841
 Upgraded to python 3.6
 + players can now play a full game

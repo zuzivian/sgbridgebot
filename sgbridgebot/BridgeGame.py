@@ -37,6 +37,7 @@ class BridgeGame(object):
         self.trick_start = None
         self.tricks_played = 0
         self.trump_broken = 0
+        self.trick_history = []
 
     '''
     PLAYER RELATED
@@ -91,6 +92,9 @@ class BridgeGame(object):
         for i in range(4):
             if player is self.players[i]:
                 return i
+
+    def get_trump_suit(self):
+        return self.contract%5
 
     def get_chat_ids(self):
         chat_ids = []
@@ -168,7 +172,7 @@ class BridgeGame(object):
         return
 
     def end_game(self):
-        self.state = 3
+        self.state = 4
         required_tricks = 7 + self.contract//5
         bidder_tricks = self.bidder.tricks_won + self.partner.tricks_won
         if (bidder_tricks > required_tricks):
@@ -200,6 +204,7 @@ class BridgeGame(object):
         if (self.state == 3):
             #play logic
             if len(self.trick) == 4:
+                self.trick_history.append(self.trick)
                 self.decide_trick_winner()
                 self.tricks_played += 1
             if self.tricks_played == 13:
@@ -293,10 +298,28 @@ class BridgeGame(object):
 
     def get_next_card(self):
         if (self.curr_player().is_bot):
-            played_card = self.curr_player().play_auto_card(self.trick)
+            played_card = self.curr_player().play_auto_card(self.trick, self)
             self.trick.append(played_card)
+            if played_card.suit == self.get_trump_suit():
+                self.trump_broken = 1
             self.chat_handler.card_played(self.curr_player(), played_card, self)
             self.next_turn()
         else:
             self.chat_handler.request_card(self.curr_player(), self)
         return
+
+    def valid_play(self, card):
+        trump_suit = self.get_trump_suit()
+        # can lead trump?
+        if len(self.trick) == 0:
+            if card.suit == trump_suit and not self.trump_broken:
+                return False
+            else:
+                return True
+        # can play other suit?
+        leading_suit = self.trick[0].suit
+        suit_cards_available = len(self.curr_player().get_all_suit(leading_suit)) != 0
+        if leading_suit != card.suit and suit_cards_available:
+            return False
+        # if not, everything else if cool
+        return True
