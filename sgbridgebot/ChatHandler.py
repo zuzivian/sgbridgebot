@@ -98,8 +98,8 @@ class ChatHandler(object):
             keyboard.append([])
             for y in range(4):
                 keyboard[x].append( InlineKeyboardButton(repr(BridgeCard((12-x)+y*13))) )
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        self.bot.send_message(player.chat_id, player.disp_name() + ', please select a partner card:', reply_markup=reply_markup)
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
+        self.bot.send_message(player.chat_id, '@'+player.disp_name() + ', please select a partner card:', reply_markup=reply_markup)
         return
 
     def partner_chosen(self, player, card_id, game):
@@ -124,8 +124,12 @@ class ChatHandler(object):
                     keyboard[-1].append( InlineKeyboardButton(repr(l[s][i])) )
                 else:
                     keyboard[-1].append( InlineKeyboardButton(' ') )
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        self.bot.send_message(player.chat_id, player.disp_name() + ', please choose a card to play.', reply_markup=reply_markup)
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
+        if player.username is not None:
+            disp_name = '@'+player.username
+        else:
+            disp_name = '['+player.first_name+'](mention:'+player.id+')'
+        self.bot.send_message(player.chat_id, disp_name + ', please choose a card to play.', reply_markup=reply_markup)
 
 
     def card_played(self, player, card, game):
