@@ -4,15 +4,14 @@ from ChatBot import ChatBot
 import logging
 import os
 
-    '''
-    sgbridgebot.py
+'''
+sgbridgebot.py
 
-    Top-level bot script that initiates amd ChatBot() object and begins
-    serving requests via webhook.
+Top-level bot script that initiates amd ChatBot() object and begins
+serving requests via webhook.
 
-    WARNING: DO NOT USE THIS FOR TESTING. Instead, please use
-    '''
-
+WARNING: DO NOT USE THIS FOR TESTING. Instead, please use
+'''
 
 def main():
     # python-telegram-bot provides logging features for debugging purposes
