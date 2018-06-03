@@ -42,11 +42,11 @@ class ChatBot(object):
             self.updater.idle()
         else:
             PORT = int(os.environ.get('PORT', '8443'))
-            updater.start_webhook(listen="0.0.0.0",
+            self.updater.start_webhook(listen="0.0.0.0",
                                   port=PORT,
                                   url_path=self.TOKEN)
-            updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + TOKEN)
-            updater.idle()
+            self.updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + TOKEN)
+            self.updater.idle()
 
     def init_regex_handlers(self):
         self.updater.dispatcher.add_handler(RegexHandler('^(PASS|(1|2|3|4|5|6|7)('+"|".join([u'\U00002663',u'\U00002666',u'\U00002764',u'\U00002660','NT'])+'))$', self.cmd_utils.bidding))
