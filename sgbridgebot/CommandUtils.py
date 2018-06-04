@@ -145,6 +145,8 @@ class CommandUtils(object):
                     self.reply_text(update, 'You played a card.')
                     game.curr_player().remove_card(card)
                     game.trick.append(card)
+                    if card.suit == game.get_trump_suit():
+                        game.trump_broken = 1
                     self.chat.card_played(game.curr_player(), card, game)
                     game.next_turn()
                 else:
