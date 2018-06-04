@@ -245,6 +245,7 @@ class BridgeGame(object):
             self.chat_handler.request_bid(self.players[self.turn])
         else:
             bid = self.curr_player().make_auto_bid(self.contract)
+            time.sleep(BOT_PAUSE)
             self.process_bid(bid)
         return
 
