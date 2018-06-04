@@ -133,7 +133,6 @@ class CommandUtils(object):
         if isinstance(game, BridgeGame):
             if game.state == 2 and user.id == game.curr_player().id:
                 # Chose a partner, update game state
-                self.reply_text(update, 'Partner chosen.')
                 game.partner = game.player_holding_card(card_id)
                 self.chat.partner_chosen(game.curr_player(), card_id, game)
                 # update state
@@ -142,7 +141,6 @@ class CommandUtils(object):
                 # Played a card, update game state
                 card = BridgeCard(card_id)
                 if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
-                    self.reply_text(update, 'You played a card.')
                     game.curr_player().remove_card(card)
                     game.trick.append(card)
                     if card.suit == game.get_trump_suit():
