@@ -2,8 +2,9 @@ from telegram.ext import Updater, CommandHandler
 from telegram import User, Chat
 from BridgePlayer import BridgePlayer
 from BridgeCard import BridgeCard
-import uuid, random
+import uuid, random, time
 
+BOT_PAUSE = 0.5
 
 
 class BridgeGame(object):
@@ -302,6 +303,7 @@ class BridgeGame(object):
             self.trick.append(played_card)
             if played_card.suit == self.get_trump_suit():
                 self.trump_broken = 1
+            time.sleep(BOT_PAUSE)
             self.chat_handler.card_played(self.curr_player(), played_card, self)
             self.next_turn()
         else:
