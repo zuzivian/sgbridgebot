@@ -176,7 +176,7 @@ class BridgeGame(object):
         self.state = 4
         required_tricks = 7 + self.contract//5
         bidder_tricks = self.bidder.tricks_won + self.partner.tricks_won
-        if (bidder_tricks > required_tricks):
+        if (bidder_tricks >= required_tricks):
             # bidder and partner won the game
             self.chat_handler.game_winners(0, self.bidder, self.partner, bidder_tricks, required_tricks, self)
         else:
