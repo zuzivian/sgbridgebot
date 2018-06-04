@@ -52,6 +52,7 @@ class CommandUtils(object):
             return
         # populate game with bots
         while (game.add_bot() != -1):
+            time.sleep(0.5)
             pass
         if (game.state == 0):
             game.start_game()
