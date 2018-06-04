@@ -6,9 +6,10 @@ Add a section here for every commit that is made, in the following format: major
 
 Build numbers are included in the alpha stage of development, and will be dropped eventually. For now time is in UTC+5.
 
-## 0.1-alpha build 180603/1951
+## 0.1-alpha: build 180603/1955
 First stable release, soft release on production server for testing
 + chatbot now retries sending message on timeout
++ fixed weird trumping behavior by bot
 - does not yet have idle timer
 
 ## 0.0.7-alpha: build 180603/0302

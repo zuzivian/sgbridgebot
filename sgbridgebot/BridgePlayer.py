@@ -185,7 +185,7 @@ class BridgePlayer(User):
             # check if can trump, if so please trump
             highest_trick_trump = 0
             for c in game.trick:
-                if c.rank > highest_trick_trump:
+                if c.rank > highest_trick_trump and c.suit == trump_suit:
                     highest_trick_trump = c.rank
             trump_cards = self.get_all_suit(trump_suit)
             for card in trump_cards:
