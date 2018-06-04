@@ -1,8 +1,9 @@
 from telegram.ext import Updater, CommandHandler
+from telegram.error import TimedOut
 from BridgeGame import BridgeGame
 from GameManager import GameManager
 from BridgeCard import BridgeCard
-import logging
+import logging, time
 
 
 class CommandUtils(object):
@@ -24,20 +25,30 @@ class CommandUtils(object):
         self.manager = manager
         self.chat = chat_handler
 
+    def reply_text(self, update, message):
+        while True:
+            try:
+                update.message.reply_text(message)
+            except TimedOut:
+                print("Timed out error in message.reply_text to {}, retrying: {}".format(str(chat_id), message))
+                time.sleep(0.5)
+                continue
+            break
+
 
     def forcestart(self, bot, update):
         user = update.message.from_user
         # admin_list = update.message.chat.get_administrators()
         # admins = [cm.user for cm in admin_list]
         # if (user not in admins):
-        #     update.message.reply_text('You must be an admin of a group chat to do this!')
+        #     self.reply_text(update, 'You must be an admin of a group chat to do this!')
         #     return
         game = self.manager.find_game(user, update.message.chat_id)
         if (not game):
-            update.message.reply_text('Please join the game first before starting one!')
+            self.reply_text(update, 'Please join the game first before starting one!')
             return
         if (game.state != 0):
-            update.message.reply_text('Game already started!')
+            self.reply_text(update, 'Game already started!')
             return
         # populate game with bots
         while (game.add_bot() != -1):
@@ -54,11 +65,11 @@ class CommandUtils(object):
         game = self.manager.join_game(user, update.message.chat)
 
         if game == -1:
-            update.message.reply_text('Could not join: games are currently full.')
+            self.reply_text(update, 'Could not join: games are currently full.')
             return
 
         elif game == -2:
-            update.message.reply_text('You are already in the game.')
+            self.reply_text(update, 'You are already in the game.')
             return
 
         elif not isinstance(game, BridgeGame):
@@ -75,13 +86,13 @@ class CommandUtils(object):
         game = self.manager.leave_game(user, update.message.chat_id)
 
         if game == -1:
-            update.message.reply_text('You are already not in the game.')
+            self.reply_text(update, 'You are already not in the game.')
             return
 
         elif not isinstance(game, BridgeGame):
             raise TypeError('GameManager.join_game() did not return a valid BridgeGame object')
 
-        update.message.reply_text('You left the game.')
+        self.reply_text(update, 'You left the game.')
         # send broadcast update to all members of the room
         self.chat.player_left_game(user, game)
 
@@ -108,7 +119,7 @@ class CommandUtils(object):
         bid_id = self.chat.str_utils.bid_str_to_id(update.message.text)
         if isinstance(game, BridgeGame):
             if game.state != 1 or user.id != game.curr_player().id:
-                update.message.reply_text('You cannot bid at this time!')
+                self.reply_text(update, 'You cannot bid at this time!')
                 return
             game.process_bid(bid_id)
             return
@@ -121,7 +132,7 @@ class CommandUtils(object):
         if isinstance(game, BridgeGame):
             if game.state == 2 and user.id == game.curr_player().id:
                 # Chose a partner, update game state
-                update.message.reply_text('Partner chosen.')
+                self.reply_text(update, 'Partner chosen.')
                 game.partner = game.player_holding_card(card_id)
                 self.chat.partner_chosen(game.curr_player(), card_id, game)
                 # update state
@@ -130,14 +141,14 @@ class CommandUtils(object):
                 # Played a card, update game state
                 card = BridgeCard(card_id)
                 if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
-                    update.message.reply_text('You played a card.')
+                    self.reply_text(update, 'You played a card.')
                     game.curr_player().remove_card(card)
                     game.trick.append(card)
                     self.chat.card_played(game.curr_player(), card, game)
                     game.next_turn()
                 else:
-                    update.message.reply_text('Invalid card!')
+                    self.reply_text(update, 'Invalid card!')
                     self.chat.request_card(game.curr_player(), game)
             else:
-                update.message.reply_text('Not you turn to play a card! Current turn: {}'. format(game.curr_player().disp_name()))
+                self.reply_text(update, 'Not you turn to play a card! Current turn: {}'. format(game.curr_player().disp_name()))
         return

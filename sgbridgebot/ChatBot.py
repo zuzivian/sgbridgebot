@@ -28,7 +28,7 @@ class ChatBot(object):
 
 
     def __init__(self, token):
-        self.updater = Updater(token, request_kwargs={'read_timeout': 10, 'connect_timeout': 10})
+        self.updater = Updater(token)
         self.token = token
         self.chat_handler = ChatHandler(self.updater.bot)
         self.manager = GameManager(self.chat_handler)
@@ -68,4 +68,4 @@ class ChatBot(object):
         self.updater.dispatcher.add_handler(CommandHandler('join', self.cmd_utils.join))
         self.updater.dispatcher.add_handler(CommandHandler('leave', self.cmd_utils.leave))
         self.updater.dispatcher.add_handler(CommandHandler('hand', self.cmd_utils.hand))
-        self.updater.dispatcher.add_error_handler(self.error_callback)
+        # self.updater.dispatcher.add_error_handler(self.error_callback)

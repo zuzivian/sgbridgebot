@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from telegram import InlineKeyboardButton, ReplyKeyboardMarkup
+from telegram.error import TimedOut
 from StringUtils import StringUtils
 from BridgeCard import BridgeCard
+import time
 
 class ChatHandler(object):
 
@@ -24,35 +26,49 @@ class ChatHandler(object):
         self.bot = bot
 
     '''
+    PERSISTENCE WRAPPER
+    '''
+
+    def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
+        while True:
+            try:
+                self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
+            except TimedOut:
+                print("Timed out error in bot.send_message, retrying")
+                time.sleep(0.5)
+                continue
+            break
+
+    '''
     GENERAL
     '''
 
     def player_joined_game(self, player, game):
         # send broadcast update to all members of the room
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, self.str_utils.joined_game(player, game))
+            self.send_message(chat_id, self.str_utils.joined_game(player, game))
 
     def player_left_game(self, player, game):
         # send broadcast update to all members of the room
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, self.str_utils.left_game(player, game))
+            self.send_message(chat_id, self.str_utils.left_game(player, game))
 
     def display_hand(self, player, chat_id=None):
         if chat_id is not None:
-            self.bot.send_message(chat_id, self.str_utils.cards_in_hand(player))
+            self.send_message(chat_id, self.str_utils.cards_in_hand(player))
         elif player.chat_id is not None:
-            self.bot.send_message(player.chat_id, self.str_utils.cards_in_hand(player))
+            self.send_message(player.chat_id, self.str_utils.cards_in_hand(player))
 
     def starting_game(self, game):
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, "Room is full! Starting game...")
+            self.send_message(chat_id, "Room is full! Starting game...")
 
     def ask_private_chat(self, game):
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, "I've dealt your cards already!\nPM me @sgbridgebot and type /hand to see it.")
+            self.send_message(chat_id, "I've dealt your cards already!\nPM me @sgbridgebot and type /hand to see it.")
 
     def display_game_players(self, chat_id, game):
-        self.bot.send_message(chat_id, "For game with players " + ", ".join([p.disp_name() for p in game.players]) + ":")
+        self.send_message(chat_id, "For game with players " + ", ".join([p.disp_name() for p in game.players]) + ":")
 
 
     '''
@@ -67,25 +83,25 @@ class ChatHandler(object):
             for y in range(5):
                 keyboard[x+1].append(InlineKeyboardButton(str(x+1)+suits[y]))
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        self.bot.send_message(player.chat_id, player.disp_name() + ', please select a bid:', reply_markup=reply_markup)
+        self.send_message(player.chat_id, player.disp_name() + ', please select a bid:', reply_markup=reply_markup)
         return
 
     def player_passed(self, player, game):
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, player.disp_name() + ' passed.')
+            self.send_message(chat_id, player.disp_name() + ' passed.')
 
     def player_bid(self, bid, player, game):
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid) + ' .')
+            self.send_message(chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid) + ' .')
 
     def invalid_bid(self, player):
-        self.bot.send_message(player.chat_id, 'Invalid bid!')
+        self.send_message(player.chat_id, 'Invalid bid!')
         self.request_bid(player)
 
     def bid_winner(self, player, bid, game):
         bid_str = self.str_utils.bid_id_to_str(bid)
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, player.disp_name() + ' wins with bid ' + bid_str + '. Choosing partner...')
+            self.send_message(chat_id, player.disp_name() + ' wins with bid ' + bid_str + '. Choosing partner...')
 
 
     '''
@@ -99,13 +115,13 @@ class ChatHandler(object):
             for y in range(4):
                 keyboard[x].append( InlineKeyboardButton(repr(BridgeCard((12-x)+y*13))) )
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
-        self.bot.send_message(player.chat_id, '@'+player.disp_name() + ', please select a partner card:', reply_markup=reply_markup)
+        self.send_message(player.chat_id, '@'+player.disp_name() + ', please select a partner card:', reply_markup=reply_markup)
         return
 
     def partner_chosen(self, player, card_id, game):
             card = BridgeCard(card_id)
             for chat_id in game.get_chat_ids():
-                self.bot.send_message(chat_id, player.disp_name() + ' calls ' + repr(card) + ' as the partner card.')
+                self.send_message(chat_id, player.disp_name() + ' calls ' + repr(card) + ' as the partner card.')
 
 
     '''
@@ -129,20 +145,20 @@ class ChatHandler(object):
             disp_name = '@'+player.username
         else:
             disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
-        self.bot.send_message(player.chat_id, player.disp_name() + ', please choose a card to play.', parse_mode='Markdown', reply_markup=reply_markup)
+        self.send_message(player.chat_id, player.disp_name() + ', please choose a card to play.', parse_mode='Markdown', reply_markup=reply_markup)
 
 
     def card_played(self, player, card, game):
         message = player.disp_name() + ' played ' + repr(card) + '.\n\nCurrent trick: '
         message += ' '.join([repr(c) for c in game.trick])
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, message)
+            self.send_message(chat_id, message)
 
     def announce_trick(self, player, card, game):
         message = player.disp_name() + ' won the trick with ' + repr(card) + '.\n\nTricks won:\n'
         message += ',  '.join([p.disp_name()+': '+str(p.tricks_won) for p in game.players])
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, message)
+            self.send_message(chat_id, message)
 
 
     def game_winners(self, team, p1, p2, bid, req, game):
@@ -152,4 +168,4 @@ class ChatHandler(object):
         message += 'Congrats to {} and {}!\n\n'.format(p1.disp_name(), p2.disp_name())
         message += 'Game ended, all players have been kicked from the room.'
         for chat_id in game.get_chat_ids():
-            self.bot.send_message(chat_id, message)
+            self.send_message(chat_id, message)
