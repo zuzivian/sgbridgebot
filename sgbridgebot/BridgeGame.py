@@ -180,7 +180,7 @@ class BridgeGame(object):
             # bidder and partner won the game
             self.chat_handler.game_winners(0, self.bidder, self.partner, bidder_tricks, required_tricks, self)
         else:
-            winning_team = self.players
+            winning_team = list(self.players)
             winning_team.remove(self.bidder)
             winning_team.remove(self.partner)
             self.chat_handler.game_winners(1, winning_team[0], winning_team[1], bidder_tricks, required_tricks, self)
