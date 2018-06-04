@@ -62,21 +62,20 @@ class GameManager(object):
                     if chat.id in [p.chat_id for p in g.players] and g.type == 1:
                         found = 1
                         break
-                for g in self.active_games:
-                    if chat.id in [p.chat_id for p in g.players] and g.type == 1:
-                        found = 1
-                        break
                 if not found: g = self.create_game(1)
                 game_state = g.add_player(player, chat.id)
                 self.update_gamelists()
                 return game_state
-            else:
+            else: # join auto game
                 # add player to oldest waiting game
-                if not len(self.waiting_games):
-                    self.create_game(0)
+                game = None
                 for g in self.waiting_games:
-                    if g.type == 0:
-                        game_state = g.add_player(player, chat.id)
+                    if len(g.players) < 4 and g.type == 0:
+                        game = g
+                        break
+                if game is None:
+                    game = self.create_game(0)
+                game_state = game.add_player(player, chat.id)
             self.update_gamelists()
             if game_state is None:
                 return -1
