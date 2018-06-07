@@ -57,6 +57,8 @@ class BridgeGame(object):
             return -2 # already in game
         else:
             self.players.append(BridgePlayer(user, chat_id))
+            # send broadcast update to all members of the room
+            self.chat_handler.player_joined_game(user, self)
             if self.num_players() == 4:
                 # if room is full, get the game started
                 self.start_game()
@@ -74,6 +76,7 @@ class BridgeGame(object):
                 if p.id == user.id:
                     if (self.state > 0):
                         p.player_to_bot()
+                        self.get_next_card()
                     else:
                         self.players.remove(p)
                     break
