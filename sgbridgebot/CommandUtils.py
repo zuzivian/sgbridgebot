@@ -76,6 +76,10 @@ class CommandUtils(object):
         elif not isinstance(game, BridgeGame):
             raise TypeError('GameManager.join_game() did not return a valid BridgeGame object')
 
+        # send broadcast update to all members of the room
+        self.chat.player_joined_game(user, game)
+
+
     # /leave command util
     def leave(self, bot, update):
         # attempt to remove player from game

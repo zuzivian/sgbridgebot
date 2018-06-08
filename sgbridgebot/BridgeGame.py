@@ -17,18 +17,9 @@ class BridgeGame(object):
     state (int): 0=setup; 1=auction; 2=partner_call; 3=play; 4=scoring
 
     ARGS
-    add_player(Telegram.User, int):
-    remove_player(Telegram.User, int):
-    add_bot():
-    player_num(BridgePlayer):
-    num_players():
-    player_listing():
-    get_chat_ids():
-    get_trump_suit():
-
+    add_player(Telegram.User):
+    remove_player(Telegram.User):
     start_game(): moves from waiting
-
-
     """
 
 
@@ -41,7 +32,7 @@ class BridgeGame(object):
         self.players = []
         self.turn = 0 #1=,2,3,4 or 0 for nobody
         self.contract = -1 # winning bid
-        self.declarer = None
+        self.bidder = None
         self.partner = None
         self.trick = []
         self.trick_start = None
@@ -53,7 +44,8 @@ class BridgeGame(object):
     PLAYER RELATED
     '''
 
-
+    def num_players(self):
+        return len(self.players)
 
     # adds a player to the game if it is not full
     def add_player(self, user, chat_id):
@@ -65,8 +57,6 @@ class BridgeGame(object):
             return -2 # already in game
         else:
             self.players.append(BridgePlayer(user, chat_id))
-            # send broadcast update to all members of the room
-            self.chat_handler.player_joined_game(user, self)
             if self.num_players() == 4:
                 # if room is full, get the game started
                 self.start_game()
@@ -84,7 +74,6 @@ class BridgeGame(object):
                 if p.id == user.id:
                     if (self.state > 0):
                         p.player_to_bot()
-                        self.get_next_card()
                     else:
                         self.players.remove(p)
                     break
@@ -105,8 +94,8 @@ class BridgeGame(object):
             if player is self.players[i]:
                 return i
 
-    def num_players(self):
-        return len(self.players)
+    def get_trump_suit(self):
+        return self.contract%5
 
     def get_chat_ids(self):
         chat_ids = []
@@ -114,9 +103,6 @@ class BridgeGame(object):
             if p.chat_id is not None and p.chat_id not in chat_ids:
                 chat_ids.append(p.chat_id)
         return chat_ids
-
-    def get_trump_suit(self):
-        return self.contract%5
 
     def player_listing(self):
         return ", ".join([p.disp_name() for p in self.players])
@@ -166,7 +152,7 @@ class BridgeGame(object):
         '''
         self.state = 1
         self.chat_handler.starting_game(self)
-        # Give each player a direction
+        #give each player a direction
         dirs = 1
         for p in self.players:
             p.give_direction(dirs)
@@ -181,7 +167,7 @@ class BridgeGame(object):
                     wash = True
         self.show_hands()
         self.turn = 0
-        self.declarer = self.curr_player()
+        self.bidder = self.curr_player()
         if not self.curr_player().is_bot:
             self.chat_handler.request_bid(self.curr_player())
         return
@@ -189,15 +175,15 @@ class BridgeGame(object):
     def end_game(self):
         self.state = 4
         required_tricks = 7 + self.contract//5
-        declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
-        if (declarer_tricks >= required_tricks):
-            # declarer and partner won the game
-            self.chat_handler.game_winners(0, self.declarer, self.partner, declarer_tricks, required_tricks, self)
+        bidder_tricks = self.bidder.tricks_won + self.partner.tricks_won
+        if (bidder_tricks >= required_tricks):
+            # bidder and partner won the game
+            self.chat_handler.game_winners(0, self.bidder, self.partner, bidder_tricks, required_tricks, self)
         else:
             winning_team = list(self.players)
-            winning_team.remove(self.declarer)
+            winning_team.remove(self.bidder)
             winning_team.remove(self.partner)
-            self.chat_handler.game_winners(1, winning_team[0], winning_team[1], declarer_tricks, required_tricks, self)
+            self.chat_handler.game_winners(1, winning_team[0], winning_team[1], bidder_tricks, required_tricks, self)
         # end of game.. exiting..
         self.players = []
 
@@ -207,7 +193,7 @@ class BridgeGame(object):
     def next_turn(self):
         self.turn = (self.turn+1) % 4
         if (self.state == 1):
-            if (self.declarer.id == self.curr_player().id):
+            if (self.bidder.id == self.curr_player().id):
                 self.state = 2
                 self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
                 self.get_partner_choice()
@@ -215,9 +201,6 @@ class BridgeGame(object):
                 self.get_next_bid()
         elif (self.state == 2):
             self.state = 3
-            if self.bit % 5 == 4:
-                # start with declarer
-                self.turn = (self.turn-1) % 4
             self.trick_start = self.curr_player().direction - 1
         if (self.state == 3):
             #play logic
@@ -248,7 +231,7 @@ class BridgeGame(object):
             self.next_turn()
         elif bid > self.contract:
             self.contract = bid
-            self.declarer = self.curr_player()
+            self.bidder = self.curr_player()
             self.chat_handler.player_bid(bid, self.curr_player(), self)
             self.next_turn()
         elif not self.curr_player().is_bot:

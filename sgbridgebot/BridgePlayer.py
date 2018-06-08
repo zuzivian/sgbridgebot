@@ -48,7 +48,7 @@ class BridgePlayer(User):
     def player_to_bot(self):
         self.is_bot = 1
         self.chat_id = None
-        self.first_name = self.name_bot(self.direction)
+        self.first_name = 'Player' + str(random.randint(100,999))
         self.username = None
         self.id = -self.direction
 
@@ -62,17 +62,11 @@ class BridgePlayer(User):
         if self.direction == 0:
             self.direction = dir
             if self.is_bot:
-                self.player_to_bot()
+                self.id = -self.direction
+                self.first_name = {1:'South',2:'West',3:'North',4:'East'}[self.direction]
             return 1
         else:
             return -1
-
-    def name_bot(self, dir):
-        randnum = str(random.randint(100,999))
-        return {0:'BotPlayer'+randnum,1:'South',2:'West',3:'North',4:'East'}[dir]
-
-    def name_dir(self, dir):
-        return {0:'nodir',1:'South',2:'West',3:'North',4:'East'}[dir]
 
     def disp_name(self):
         return self.username if self.username else self.first_name
