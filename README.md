@@ -1,22 +1,14 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 #### Author: zuzivian | Version: 0.1.1-alpha
-=======
-#### Author: Nathaniel Wong | Version: 0.1-alpha
->>>>>>> parent of dd0dc66... Merge pull request #1 from zuzivian/v0.1.1-alpha-testing
-=======
-#### Author: Nathaniel Wong | Version: 0.1-alpha
->>>>>>> parent of dd0dc66... Merge pull request #1 from zuzivian/v0.1.1-alpha-testing
 
 
 # Introduction
 
-This project is under heavy development. The aim is to create a bot using the
-Telegram API that will allow users to play games of bridge to with each other in
-a group chat setting. The bot will allow for one game session per group chat.
+This project is under heavy development. sgBridgeBot allows users to play bridge
+games with each other via the Telegram Bot API.
+The bot allows games to be played by an online  per group chat.
 
 
 # Rules of the Game
@@ -29,9 +21,20 @@ https://en.wikipedia.org/wiki/Singaporean_bridge
 
 Link to telegram bot: http://t.me/sgbridgebot
 
-# Features and Documentation
+# Features
 
-More documentation will be provided soon.
++ Game management system that is able to handle concurrent game sessions
++ Players able to leave or join games at will
++ Game starts when 4 players join a game lobby
++ Game will proceed in turn-based fashion, with an idle timer of 30s
++ Players will be dealt a hand of 13 cards at random
++ Players will use buttons to select their bid or pass
++ Players will be able to select a card (using buttons) to call a partner
++ Players will use buttons to play a card when it is their turn
++ Chatbot will only allow valid cards to be played
++ Game ends when a partnership wins or a player leaves
++ When game ends, players are kicked and are free to join a new game
+
 Please see the wiki for more information about the bot's planned features: https://github.com/zuzivian/sgbridgebot/wiki/
 
 
