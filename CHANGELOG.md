@@ -2,9 +2,23 @@
 See README for further details about this project.
 
 ## How to maintain this changelog
-Add a section here for every commit that is made, in the following format: major.minor.patch+release[: build YYMMDD/HHMM]
+Add a section here for every commit that is made, in the following format: major.minor.patch[: build YYMMDD/HHMM]
 
-Build numbers are included in the alpha stage of development, and will be dropped eventually. For now time is in UTC+5.
+Build numbers are included in the alpha stage of development, and will be dropped eventually. Time is in UTC-5.
+
+
+## 0.1.2-alpha: build 180608/2100
+Bug and cosmetic fixes
++ Improved bot bidding dice roll
++ Added game information to keyboard
+
+## 0.1.1-alpha: build 180607/1641
+Bug fixes
++ Fixed play not being able to break trump
++ Fixed end of game message not displaying if you lost your contract
++ Fixed no trump games starting on wrong player
++ Added temporary pauses between each bot play to avoid spamminess
++ Improved bot player logic
 
 ## 0.1-alpha: build 180603/1955
 First stable release, soft release on production server for testing

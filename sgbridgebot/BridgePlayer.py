@@ -117,17 +117,21 @@ class BridgePlayer(User):
                 suit = s
         return suit
 
+    def suit_score(self, suit):
+        return self.hand_score(self.get_all_suit(suit))
+
     def make_auto_bid(self, contract):
-        if contract > 33 or random.randint(0, (contract+2)^2) > self.hand_score(self.hand)/3:
+        best_suit = self.get_best_suit()
+        hand_quality = self.hand_score(self.hand)/3 + 1.5*self.suit_score(best_suit)
+        if contract > 33 or random.randint(0, (2*contract+2)^2) > hand_quality:
             return -1
         else:
             # can't go above 7NT
-            suit = self.get_best_suit()
             bid = -1
-            if (contract%5 < suit):
-                bid = contract - contract%5 + suit
-            elif (contract%5 > suit):
-                bid = contract - contract%5 + suit + 5
+            if (contract%5 < best_suit):
+                bid = contract - contract%5 + best_suit
+            elif (contract%5 > best_suit):
+                bid = contract - contract%5 + best_suit + 5
             return min(34, bid)
 
     def make_auto_partner(self):
