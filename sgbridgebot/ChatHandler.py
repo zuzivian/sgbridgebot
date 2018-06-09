@@ -165,9 +165,9 @@ class ChatHandler(object):
 
 
     def game_winners(self, team, p1, p2, bid, req, game):
-        bidder = game.bidder.disp_name()
+        declarer = game.declarer.disp_name()
         partner = game.partner.disp_name()
-        message = '{} and {} gained {} of the {} required tricks to win.\n\n'.format(bidder, partner, bid, req)
+        message = '{} and {} gained {} of the {} required tricks to win.\n\n'.format(declarer, partner, bid, req)
         message += 'Congrats to {} and {}!\n\n'.format(p1.disp_name(), p2.disp_name())
         message += 'Game ended, all players have been kicked from the room.'
         for chat_id in game.get_chat_ids():
