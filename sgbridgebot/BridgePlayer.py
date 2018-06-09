@@ -122,7 +122,7 @@ class BridgePlayer(User):
 
     def make_auto_bid(self, contract):
         best_suit = self.get_best_suit()
-        hand_quality = self.hand_score(self.hand)/3 + 1.5*self.suit_score(best_suit)
+        hand_quality = self.hand_score(self.hand)/3 + 2*self.suit_score(best_suit)
         if contract > 33 or random.randint(0, (2*contract+2)^2) > hand_quality:
             return -1
         else:
