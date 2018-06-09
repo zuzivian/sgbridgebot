@@ -37,6 +37,7 @@ class BridgeGame(object):
         self.partner = None
         self.trick = []
         self.trick_start = None
+        self.trick_message = []
         self.tricks_played = 0
         self.trump_broken = 0
         self.trick_history = []
@@ -212,6 +213,7 @@ class BridgeGame(object):
                 self.trick_history.append(self.trick)
                 self.decide_trick_winner()
                 self.tricks_played += 1
+                self.trick_message = []
             if self.tricks_played == 13:
                 self.end_game()
                 return

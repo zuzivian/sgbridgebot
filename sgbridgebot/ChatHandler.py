@@ -30,14 +30,28 @@ class ChatHandler(object):
     '''
 
     def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
+        msg = None
         while True:
             try:
-                self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
+                msg = self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
             except TimedOut:
                 print("Timed out error in bot.send_message, retrying")
-                time.sleep(0.5)
+                time.sleep(1.0)
                 continue
             break
+        return msg
+
+    def edit_message_text(self, text, chat_id, message_id, parse_mode=None, reply_markup=None):
+        msg = None
+        while True:
+            try:
+                msg = self.bot.edit_message_text(text, chat_id, message_id=message_id, parse_mode=parse_mode, reply_markup=reply_markup)
+            except TimedOut:
+                print("Timed out error in bot.edit_message_text, retrying")
+                time.sleep(1.0)
+                continue
+            break
+        return msg
 
     '''
     GENERAL
@@ -92,7 +106,7 @@ class ChatHandler(object):
 
     def player_bid(self, bid, player, game):
         for chat_id in game.get_chat_ids():
-            self.send_message(chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid) + ' .')
+            self.send_message(chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid))
 
     def invalid_bid(self, player):
         self.send_message(player.chat_id, 'Invalid bid!')
@@ -152,10 +166,20 @@ class ChatHandler(object):
 
 
     def card_played(self, player, card, game):
-        message = player.disp_name() + ' played ' + repr(card) + '.\n\nCurrent trick: '
-        message += ' '.join([repr(c) for c in game.trick])
-        for chat_id in game.get_chat_ids():
-            self.send_message(chat_id, message)
+        message = 'Current trick:\n\n'
+        for i in range(len(game.trick)):
+            card = game.trick[i]
+            player_num = (game.trick_start+i) % 4
+            message += repr(card) + ' : played by ' + game.players[player_num].disp_name() + '\n'
+        if game.trick_message == []:
+            for chat_id in game.get_chat_ids():
+                msg = self.send_message(chat_id, message)
+                game.trick_message.append(msg.message_id)
+        else:
+            for i in range(len(game.get_chat_ids())):
+                chat_id = game.get_chat_ids()[i]
+                self.edit_message_text(message, chat_id, game.trick_message[i])
+
 
     def announce_trick(self, player, card, game):
         message = player.disp_name() + ' won the trick with ' + repr(card) + '.\n\nTricks won:\n'
