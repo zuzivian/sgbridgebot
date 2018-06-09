@@ -134,6 +134,7 @@ class CommandUtils(object):
             if game.state == 2 and user.id == game.curr_player().id:
                 # Chose a partner, update game state
                 game.partner = game.player_holding_card(card_id)
+                game.partner_card = BridgeCard(card_id)
                 self.chat.partner_chosen(game.curr_player(), card_id, game)
                 # update state
                 game.next_turn()
