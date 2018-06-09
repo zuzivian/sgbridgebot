@@ -42,6 +42,7 @@ class BridgeGame(object):
         self.turn = 0 #1=,2,3,4 or 0 for nobody
         self.contract = -1 # winning bid
         self.declarer = None
+        self.partner_card = None
         self.partner = None
         self.trick = []
         self.trick_start = None
@@ -215,7 +216,7 @@ class BridgeGame(object):
                 self.get_next_bid()
         elif (self.state == 2):
             self.state = 3
-            if self.bit % 5 == 4:
+            if self.contract % 5 == 4:
                 # start with declarer
                 self.turn = (self.turn-1) % 4
             self.trick_start = self.curr_player().direction - 1
@@ -274,6 +275,7 @@ class BridgeGame(object):
         if self.curr_player().is_bot:
             card_id = self.curr_player().make_auto_partner()
             self.partner = self.player_holding_card(card_id)
+            self.partner_card = BridgeCard(card_id)
             #broadcast partner choice
             self.chat_handler.partner_chosen(self.curr_player(), card_id, self)
             #update game state

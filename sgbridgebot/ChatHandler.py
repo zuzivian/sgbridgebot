@@ -129,7 +129,10 @@ class ChatHandler(object):
     '''
 
     def request_card(self, player, game):
-        keyboard = []
+        gameinfo = 'Contract: ' + self.str_utils.bid_id_to_str(game.contract)
+        gameinfo += ' | Declarer: ' + game.declarer.disp_name()
+        gameinfo += ' | Partner: ' + repr(game.partner_card)
+        keyboard = [[InlineKeyboardButton(gameinfo)]]
         counter = 0
         l = [player.get_all_suit(suit) for suit in range(4)]
         num_rows = max( 3, len(max(l, key=len)) )
