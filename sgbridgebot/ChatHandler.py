@@ -39,12 +39,6 @@ class ChatHandler(object):
                 print("Timed out error in bot.send_message, retrying")
                 time.sleep(1.0)
                 continue
-            else:
-                counter += 1
-                if counter < 10:
-                    continue
-                else:
-                    break
             break
         return msg
 
@@ -57,12 +51,6 @@ class ChatHandler(object):
                 print("Timed out error in bot.edit_message_text, retrying")
                 time.sleep(1.0)
                 continue
-            else:
-                counter += 1
-                if counter < 10:
-                    continue
-                else:
-                    break
             break
         return msg
 
