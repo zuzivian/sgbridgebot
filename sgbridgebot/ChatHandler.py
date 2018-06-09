@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from telegram import InlineKeyboardButton, ReplyKeyboardMarkup
-from telegram.error import TimedOut
+from telegram.error import TimedOut, BadRequest
 from StringUtils import StringUtils
 from BridgeCard import BridgeCard
 import time
@@ -51,6 +51,8 @@ class ChatHandler(object):
                 print("Timed out error in bot.edit_message_text, retrying")
                 time.sleep(1.0)
                 continue
+            except BadRequest:
+                msg = self.bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
             break
         return msg
 
