@@ -31,6 +31,7 @@ class ChatHandler(object):
 
     def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
         msg = None
+        counter = 0
         while True:
             try:
                 msg = self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
@@ -38,6 +39,12 @@ class ChatHandler(object):
                 print("Timed out error in bot.send_message, retrying")
                 time.sleep(1.0)
                 continue
+            else:
+                counter += 1
+                if counter < 10:
+                    continue
+                else:
+                    break
             break
         return msg
 
@@ -50,6 +57,12 @@ class ChatHandler(object):
                 print("Timed out error in bot.edit_message_text, retrying")
                 time.sleep(1.0)
                 continue
+            else:
+                counter += 1
+                if counter < 10:
+                    continue
+                else:
+                    break
             break
         return msg
 
