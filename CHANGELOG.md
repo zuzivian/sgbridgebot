@@ -7,6 +7,10 @@ Add a section here for every commit that is made, in the following format: major
 Build numbers are included in the alpha stage of development, and will be dropped eventually. Time is in UTC-5.
 
 
+## 0.1.3-alpha: build 180608/2100
+Bug fixes
++ Fixed win conditions when calling ownself as partner
+
 ## 0.1.2-alpha: build 180608/2100
 Bug and cosmetic fixes
 + Improved bot bidding dice roll

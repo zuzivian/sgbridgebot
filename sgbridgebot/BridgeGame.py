@@ -178,14 +178,19 @@ class BridgeGame(object):
         self.state = 4
         required_tricks = 7 + self.contract//5
         declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
+        declarers = [self.declarer, self.partner]
+        if self.declarer == self.partner:
+            declarer_tricks //= 2
+            declarers.remove(self.partner)
         if (declarer_tricks >= required_tricks):
             # declarer and partner won the game
-            self.chat_handler.game_winners(0, self.declarer, self.partner, declarer_tricks, required_tricks, self)
+            self.chat_handler.game_winners(0, declarers, declarer_tricks, required_tricks, self)
         else:
             winning_team = list(self.players)
             winning_team.remove(self.declarer)
-            winning_team.remove(self.partner)
-            self.chat_handler.game_winners(1, winning_team[0], winning_team[1], declarer_tricks, required_tricks, self)
+            if self.declarer != self.partner:
+                winning_team.remove(self.partner)
+            self.chat_handler.game_winners(1, winning_team, declarer_tricks, required_tricks, self)
         # end of game.. exiting..
         self.players = []
 

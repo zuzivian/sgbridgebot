@@ -191,11 +191,14 @@ class ChatHandler(object):
             self.send_message(chat_id, message)
 
 
-    def game_winners(self, team, p1, p2, bid, req, game):
-        declarer = game.declarer.disp_name()
-        partner = game.partner.disp_name()
-        message = '{} and {} gained {} of the {} required tricks to win.\n\n'.format(declarer, partner, bid, req)
-        message += 'Congrats to {} and {}!\n\n'.format(p1.disp_name(), p2.disp_name())
+    def game_winners(self, team, winners, bid, req, game):
+        declarers = [game.declarer.disp_name()]
+        if game.partner != game.declarer:
+            declarers.append(game.partner.disp_name())
+        declarers_text = " and ".join(declarers)
+        winners_text = " and ".join([p.disp_name() for p in winners])
+        message = '{} gained {} of the {} required tricks to win.\n\n'.format(declarers_text, bid, req)
+        message += 'Congrats to {}!\n\n'.format(winners_text)
         message += 'Game ended, all players have been kicked from the room.'
         for chat_id in game.get_chat_ids():
             self.send_message(chat_id, message)
