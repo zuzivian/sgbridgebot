@@ -135,9 +135,12 @@ class BridgeGame(object):
             p.hand.sort(key=lambda c: c.id)
         return
 
-    def show_hands(self):
+    def show_hands(self, player=None):
         if (self.type == 1):
             self.chat_handler.ask_private_chat(self)
+            return
+        if player is not None:
+            self.chat_handler.display_hand(player)
             return
         for p in self.players:
             self.chat_handler.display_hand(p)
@@ -276,7 +279,7 @@ class BridgeGame(object):
             return
         else:
             # request partner choice
-            self.chat_handler.display_hand(self.curr_player())
+            self.show_hands(self.curr_player())
             self.chat_handler.request_partner_choice(self.curr_player())
             return
 
