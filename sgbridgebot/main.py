@@ -19,11 +19,8 @@ def main():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.INFO)
 
-    required_env_vars = ['TELEGRAM_BOT_TOKEN', 'PORT', 'WEBHOOK_BASE_URL']
-    missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
-
-    if missing_vars:
-        logging.error('Missing required environment variables: %s', ', '.join(missing_vars))
+    if not os.environ.get('TELEGRAM_BOT_TOKEN'):
+        logging.error('Missing required environment variable: TELEGRAM_BOT_TOKEN')
         sys.exit(1)
 
     # provide TOKEN to initiate ChatBot
@@ -36,6 +33,12 @@ def main():
     mode = os.environ.get('BOT_MODE', default_mode).strip().lower()
 
     if mode == 'webhook':
+        if not os.environ.get('PORT'):
+            logging.error('Missing required environment variable in webhook mode: PORT')
+            sys.exit(1)
+        if not (os.environ.get('WEBHOOK_BASE_URL') or os.environ.get('KOYEB_PUBLIC_DOMAIN')):
+            logging.error('Missing WEBHOOK_BASE_URL or KOYEB_PUBLIC_DOMAIN for webhook mode')
+            sys.exit(1)
         bot.start(0)
     elif mode == 'polling':
         bot.start(1)

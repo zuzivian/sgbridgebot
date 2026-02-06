@@ -105,6 +105,27 @@ Before starting the bot in production, set the following environment variables:
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token used to initialize `ChatBot`.
 - `PORT`: Port to bind the webhook server (e.g. provided by Heroku).
 - `WEBHOOK_BASE_URL`: Public HTTPS base URL for webhook mode (for example `https://your-app.herokuapp.com`).
+  - Optional on Koyeb if `KOYEB_PUBLIC_DOMAIN` is present; the bot will auto-build `https://<KOYEB_PUBLIC_DOMAIN>`.
 
-The webhook URL is constructed at startup as `<WEBHOOK_BASE_URL>/<TELEGRAM_BOT_TOKEN>`.
+The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_TOKEN>`.
 
+### Koyeb notes
+
+- Do **not** set `WEBHOOK_BASE_URL` to `0.0.0.0`, `127.0.0.1`, or `localhost`. Telegram rejects those with
+  `Bad webhook: ip address 0.0.0.0 is reserved`.
+- Ensure `BOT_MODE=webhook` for Koyeb Web Services so the process binds `$PORT` and passes TCP health checks.
+- You can either set `WEBHOOK_BASE_URL` to your public app URL, or rely on Koyeb's `KOYEB_PUBLIC_DOMAIN`.
+
+
+
+## Deployment troubleshooting
+
+If your build fails with:
+
+```
+fatal: No url found for submodule path 'python-telegram-bot' in .gitmodules
+```
+
+remove any stale git submodule entry named `python-telegram-bot` from the repo index.
+This project uses `requirements.txt` for `python-telegram-bot`, so it should not be
+tracked as a git submodule.
