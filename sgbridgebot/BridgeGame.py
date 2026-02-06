@@ -1,8 +1,7 @@
-from telegram.ext import Updater, CommandHandler
-from telegram import User, Chat
+from telegram import User
 from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.BridgeCard import BridgeCard
-import uuid, random, time
+import uuid, random, asyncio
 
 BOT_PAUSE = 0.5
 
@@ -50,7 +49,7 @@ class BridgeGame(object):
         return len(self.players)
 
     # adds a player to the game if it is not full
-    def add_player(self, user, chat_id):
+    async def add_player(self, user, chat_id):
         if not isinstance(user, User) or not isinstance(chat_id, int):
             raise TypeError
         elif self.num_players() == 4 or self.state != 0:
@@ -61,7 +60,7 @@ class BridgeGame(object):
             self.players.append(BridgePlayer(user, chat_id))
             if self.num_players() == 4:
                 # if room is full, get the game started
-                self.start_game()
+                await self.start_game()
             return self
 
     # removes a player from the game
@@ -81,14 +80,14 @@ class BridgeGame(object):
                     break
             return self
 
-    def add_bot(self):
+    async def add_bot(self):
         if self.num_players() == 4:
             return -1
         newbot = BridgePlayer()
         self.players.append(newbot)
-        self.chat_handler.player_joined_game(newbot, self)
+        await self.chat_handler.player_joined_game(newbot, self)
         if self.num_players() == 4:
-            self.start_game()
+            await self.start_game()
         return 1
 
     def player_num(self, player):
@@ -135,15 +134,15 @@ class BridgeGame(object):
             p.hand.sort(key=lambda c: c.id)
         return
 
-    def show_hands(self, player=None):
+    async def show_hands(self, player=None):
         if (self.type == 1):
-            self.chat_handler.ask_private_chat(self)
+            await self.chat_handler.ask_private_chat(self)
             return
         if player is not None:
-            self.chat_handler.display_hand(player)
+            await self.chat_handler.display_hand(player)
             return
         for p in self.players:
-            self.chat_handler.display_hand(p)
+            await self.chat_handler.display_hand(p)
         return
 
 
@@ -151,12 +150,12 @@ class BridgeGame(object):
     GAME STATE RELATED
     '''
 
-    def start_game(self):
+    async def start_game(self):
         '''
         Takes a game instance and deals cards to each player.
         '''
         self.state = 1
-        self.chat_handler.starting_game(self)
+        await self.chat_handler.starting_game(self)
         #give each player a direction
         dirs = 1
         for p in self.players:
@@ -170,14 +169,14 @@ class BridgeGame(object):
             for p in self.players:
                 if p.hand_score(p.hand) < 4:
                     wash = True
-        self.show_hands()
+        await self.show_hands()
         self.turn = 0
         self.declarer = self.curr_player()
         if not self.curr_player().is_bot:
-            self.chat_handler.request_bid(self.curr_player())
+            await self.chat_handler.request_bid(self.curr_player())
         return
 
-    def end_game(self):
+    async def end_game(self):
         self.state = 4
         required_tricks = 7 + self.contract//5
         declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
@@ -187,28 +186,28 @@ class BridgeGame(object):
             declarers.remove(self.partner)
         if (declarer_tricks >= required_tricks):
             # declarer and partner won the game
-            self.chat_handler.game_winners(0, declarers, declarer_tricks, required_tricks, self)
+            await self.chat_handler.game_winners(0, declarers, declarer_tricks, required_tricks, self)
         else:
             winning_team = list(self.players)
             winning_team.remove(self.declarer)
             if self.declarer != self.partner:
                 winning_team.remove(self.partner)
-            self.chat_handler.game_winners(1, winning_team, declarer_tricks, required_tricks, self)
+            await self.chat_handler.game_winners(1, winning_team, declarer_tricks, required_tricks, self)
         # end of game.. exiting..
         self.players = []
 
     def curr_player(self):
         return self.players[self.turn]
 
-    def next_turn(self):
+    async def next_turn(self):
         self.turn = (self.turn+1) % 4
         if (self.state == 1):
             if (self.declarer.id == self.curr_player().id):
                 self.state = 2
-                self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
-                self.get_partner_choice()
+                await self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
+                await self.get_partner_choice()
             else:
-                self.get_next_bid()
+                await self.get_next_bid()
         elif (self.state == 2):
             self.state = 3
             if self.contract % 5 == 4:
@@ -219,13 +218,13 @@ class BridgeGame(object):
             #play logic
             if len(self.trick) == 4:
                 self.trick_history.append(self.trick)
-                self.decide_trick_winner()
+                await self.decide_trick_winner()
                 self.tricks_played += 1
                 self.trick_message = []
             if self.tricks_played == 13:
-                self.end_game()
+                await self.end_game()
                 return
-            self.get_next_card()
+            await self.get_next_card()
         return
 
     def player_holding_card(self, card_id):
@@ -239,54 +238,54 @@ class BridgeGame(object):
     BIDDING RELATED
     '''
 
-    def process_bid(self, bid):
+    async def process_bid(self, bid):
         if bid == -1:
-            self.chat_handler.player_passed(self.curr_player(), self)
-            self.next_turn()
+            await self.chat_handler.player_passed(self.curr_player(), self)
+            await self.next_turn()
         elif bid > self.contract:
             self.contract = bid
             self.declarer = self.curr_player()
-            self.chat_handler.player_bid(bid, self.curr_player(), self)
-            self.next_turn()
+            await self.chat_handler.player_bid(bid, self.curr_player(), self)
+            await self.next_turn()
         elif not self.curr_player().is_bot:
-            self.chat_handler.invalid_bid(self.curr_player())
+            await self.chat_handler.invalid_bid(self.curr_player())
         else:
             print('invalid bid made by bot')
         return
 
-    def get_next_bid(self):
+    async def get_next_bid(self):
         if not self.curr_player().is_bot:
-            self.chat_handler.request_bid(self.players[self.turn])
+            await self.chat_handler.request_bid(self.players[self.turn])
         else:
             bid = self.curr_player().make_auto_bid(self.contract)
-            time.sleep(BOT_PAUSE)
-            self.process_bid(bid)
+            await asyncio.sleep(BOT_PAUSE)
+            await self.process_bid(bid)
         return
 
     '''
     PARTNER CHOOSING
     '''
 
-    def get_partner_choice(self):
+    async def get_partner_choice(self):
         if self.curr_player().is_bot:
             card_id = self.curr_player().make_auto_partner()
             self.partner = self.player_holding_card(card_id)
             self.partner_card = BridgeCard(card_id)
             #broadcast partner choice
-            self.chat_handler.partner_chosen(self.curr_player(), card_id, self)
+            await self.chat_handler.partner_chosen(self.curr_player(), card_id, self)
             #update game state
-            self.next_turn()
+            await self.next_turn()
             return
         else:
             # request partner choice
-            self.show_hands(self.curr_player())
-            self.chat_handler.request_partner_choice(self.curr_player())
+            await self.show_hands(self.curr_player())
+            await self.chat_handler.request_partner_choice(self.curr_player())
             return
 
     '''
     GAME PLAY
     '''
-    def decide_trick_winner(self):
+    async def decide_trick_winner(self):
         # winner is p[0] by default for now
         trump_suit = self.contract % 5
         w = 0
@@ -306,24 +305,24 @@ class BridgeGame(object):
 
         self.players[winner].tricks_won += 1
         # announce winner of trick with card
-        self.chat_handler.announce_trick(self.players[winner], self.trick[w], self)
+        await self.chat_handler.announce_trick(self.players[winner], self.trick[w], self)
         # start next trick
         self.turn = winner
         self.trick_start = winner
         self.trick = []
         return
 
-    def get_next_card(self):
+    async def get_next_card(self):
         if (self.curr_player().is_bot):
             played_card = self.curr_player().play_auto_card(self.trick, self)
             self.trick.append(played_card)
             if played_card.suit == self.get_trump_suit():
                 self.trump_broken = 1
-            time.sleep(BOT_PAUSE)
-            self.chat_handler.card_played(self.curr_player(), played_card, self)
-            self.next_turn()
+            await asyncio.sleep(BOT_PAUSE)
+            await self.chat_handler.card_played(self.curr_player(), played_card, self)
+            await self.next_turn()
         else:
-            self.chat_handler.request_card(self.curr_player(), self)
+            await self.chat_handler.request_card(self.curr_player(), self)
         return
 
     def valid_play(self, card):

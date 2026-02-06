@@ -1,4 +1,3 @@
-from telegram.ext import Updater, CommandHandler
 from sgbridgebot.BridgeGame import BridgeGame
 import logging
 
@@ -49,7 +48,7 @@ class GameManager(object):
                 if game_id == g.id:
                     self.active_games.remove(g)
 
-        def join_game(self, player, chat):
+        async def join_game(self, player, chat):
             game_state = None
             # don't allow joining if already in a game
             game = self.find_game(player, chat.id)
@@ -63,7 +62,7 @@ class GameManager(object):
                         found = 1
                         break
                 if not found: g = self.create_game(1)
-                game_state = g.add_player(player, chat.id)
+                game_state = await g.add_player(player, chat.id)
                 self.update_gamelists()
                 return game_state
             else: # join auto game
@@ -75,7 +74,7 @@ class GameManager(object):
                         break
                 if game is None:
                     game = self.create_game(0)
-                game_state = game.add_player(player, chat.id)
+                game_state = await game.add_player(player, chat.id)
             self.update_gamelists()
             if game_state is None:
                 return -1
