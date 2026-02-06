@@ -61,6 +61,34 @@ def _resolve_webhook_base_url():
     logger.info('Resolved webhook base URL: %s', normalized)
     return normalized
 
+
+def _resolve_webhook_listen_port():
+    """Return a webhook listen port that is valid for this runtime user."""
+    raw_port = os.environ.get('PORT', '').strip()
+    if not raw_port:
+        logger.info('PORT is unset. Falling back to default webhook listen port 8000.')
+        return 8000
+
+    try:
+        port = int(raw_port)
+    except ValueError as exc:
+        raise ValueError('PORT must be a valid integer, got {!r}'.format(raw_port)) from exc
+
+    if not (1 <= port <= 65535):
+        raise ValueError('PORT must be between 1 and 65535, got {}.'.format(port))
+
+    # Non-root processes cannot bind privileged ports (<1024) on many hosts.
+    if port < 1024 and hasattr(os, 'geteuid') and os.geteuid() != 0:
+        fallback_port = int(os.environ.get('UNPRIVILEGED_PORT_FALLBACK', '8000'))
+        logger.warning(
+            'Configured PORT=%s is privileged but process is non-root (uid=%s). '
+            'Falling back to %s. Override with UNPRIVILEGED_PORT_FALLBACK if needed.',
+            port, os.geteuid(), fallback_port,
+        )
+        return fallback_port
+
+    return port
+
 class ChatBot(object):
 
     '''
@@ -106,7 +134,7 @@ class ChatBot(object):
             self.updater.idle()
         else:
             token = self.token
-            port = int(os.environ.get('PORT', '8443'))
+            port = _resolve_webhook_listen_port()
             webhook_base_url = _resolve_webhook_base_url()
             webhook_url = webhook_base_url + '/' + token
 
