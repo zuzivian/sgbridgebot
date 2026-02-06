@@ -63,7 +63,7 @@ def _resolve_webhook_base_url():
 
 
 def _resolve_webhook_listen_port():
-    """Return a webhook listen port that is valid for this runtime user."""
+    """Return webhook listen port from PORT with strict validation."""
     raw_port = os.environ.get('PORT', '').strip()
     if not raw_port:
         logger.info('PORT is unset. Falling back to default webhook listen port 8000.')
@@ -79,13 +79,13 @@ def _resolve_webhook_listen_port():
 
     # Non-root processes cannot bind privileged ports (<1024) on many hosts.
     if port < 1024 and hasattr(os, 'geteuid') and os.geteuid() != 0:
-        fallback_port = int(os.environ.get('UNPRIVILEGED_PORT_FALLBACK', '8000'))
-        logger.warning(
-            'Configured PORT=%s is privileged but process is non-root (uid=%s). '
-            'Falling back to %s. Override with UNPRIVILEGED_PORT_FALLBACK if needed.',
-            port, os.geteuid(), fallback_port,
+        raise ValueError(
+            'PORT={} is privileged but this process runs as non-root (uid={}). '
+            'Use a non-privileged port (>=1024). On managed platforms like Koyeb/Render, '
+            'do not hardcode PORT (especially 80); let the platform inject it.'.format(
+                port, os.geteuid()
+            )
         )
-        return fallback_port
 
     return port
 

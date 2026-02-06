@@ -27,7 +27,7 @@ Set these env vars in Koyeb:
 
 - `TELEGRAM_BOT_TOKEN` = token from BotFather (**required**)
 - `WEBHOOK_BASE_URL` = your Koyeb app URL, e.g. `https://your-app-name.koyeb.app` (**required for production webhook routing**)
-- `PORT` = provided by Koyeb runtime (do not hardcode unless needed)
+- `PORT` = provided by Koyeb runtime (**do not hardcode**; setting `PORT=80` will fail because the app runs as non-root)
 
 ## 3) Port binding behavior
 - Koyeb injects `PORT`.
