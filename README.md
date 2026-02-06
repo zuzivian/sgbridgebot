@@ -95,6 +95,11 @@ SOFTWARE.
 
 # Deployment
 
+Deployment compatibility targets for this codebase:
+
+- Python: **3.10.14** (`runtime.txt`)
+- `python-telegram-bot`: **13.15** (`requirements.txt`)
+
 Before starting the bot in production, set the following environment variables:
 
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token used to initialize `ChatBot`.
