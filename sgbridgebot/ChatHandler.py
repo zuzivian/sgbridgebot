@@ -2,8 +2,8 @@
 
 from telegram import InlineKeyboardButton, ReplyKeyboardMarkup
 from telegram.error import TimedOut, BadRequest
-from StringUtils import StringUtils
-from BridgeCard import BridgeCard
+from sgbridgebot.StringUtils import StringUtils
+from sgbridgebot.BridgeCard import BridgeCard
 import time
 
 class ChatHandler(object):

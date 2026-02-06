@@ -19,7 +19,7 @@ pip install -r requirements.txt
 
 ### Start command
 ```bash
-python sgbridgebot/main.py
+python -m sgbridgebot.main
 ```
 
 ## 2) Configure environment variables

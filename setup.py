@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 setup(name='sgbridgebot',
       version='0.1-alpha',
@@ -7,5 +7,5 @@ setup(name='sgbridgebot',
       author='Nathaniel Wong',
       author_email='rubikcode@gmail.com',
       license='MIT',
-      packages=['sgbridgebot'],
+      packages=find_packages(include=['sgbridgebot', 'sgbridgebot.*']),
       zip_safe=False)

@@ -1,8 +1,8 @@
 from telegram.ext import Updater, CommandHandler
 from telegram.error import TimedOut
-from BridgeGame import BridgeGame
-from GameManager import GameManager
-from BridgeCard import BridgeCard
+from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.GameManager import GameManager
+from sgbridgebot.BridgeCard import BridgeCard
 import logging, time
 
 

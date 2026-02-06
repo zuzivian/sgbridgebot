@@ -1,5 +1,5 @@
 from telegram.ext import Updater, CommandHandler
-from BridgeGame import BridgeGame
+from sgbridgebot.BridgeGame import BridgeGame
 import logging
 
 class GameManager(object):

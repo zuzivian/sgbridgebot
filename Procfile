@@ -1,1 +1,1 @@
-web: python sgbridgebot/main.py
+web: python -m sgbridgebot.main
