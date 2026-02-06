@@ -28,7 +28,9 @@ class ChatBot(object):
 
 
     def __init__(self, token):
-        self.updater = Updater(token)
+        # Keep legacy callback signatures (`bot, update`) expected by
+        # CommandUtils and Regex/Command handlers across the codebase.
+        self.updater = Updater(token, use_context=False)
         self.token = token
         self.chat_handler = ChatHandler(self.updater.bot)
         self.manager = GameManager(self.chat_handler)
