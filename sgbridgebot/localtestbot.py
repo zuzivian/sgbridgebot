@@ -2,6 +2,7 @@
 
 from ChatBot import ChatBot
 import logging
+import os
 
 '''
 localtestbot.py
@@ -23,7 +24,8 @@ def main():
                         level=logging.DEBUG)
 
     # provide TOKEN to initiate ChatBot
-    bot = ChatBot('577609760:AAFkuR2w7lWWyOlERf9NMyq0GYlf8WaoAZI')
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '577609760:AAFkuR2w7lWWyOlERf9NMyq0GYlf8WaoAZI')
+    bot = ChatBot(token)
     bot.start(1)
 
 

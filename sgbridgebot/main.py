@@ -19,7 +19,8 @@ def main():
                         level=logging.INFO)
 
     # provide TOKEN to initiate ChatBot
-    bot = ChatBot('608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
+    bot = ChatBot(token)
     bot.start(0) # 0 for webhook
 
 

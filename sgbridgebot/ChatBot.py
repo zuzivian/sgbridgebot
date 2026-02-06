@@ -52,10 +52,11 @@ class ChatBot(object):
         else:
             TOKEN = self.token
             PORT = int(os.environ.get('PORT', '8443'))
+            webhook_base_url = os.environ.get('WEBHOOK_BASE_URL', 'https://sgbridgebot.herokuapp.com').rstrip('/')
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=PORT,
                                   url_path=TOKEN)
-            self.updater.bot.set_webhook("https://sgbridgebot.herokuapp.com/" + TOKEN)
+            self.updater.bot.set_webhook(webhook_base_url + "/" + TOKEN)
             self.updater.idle()
 
     def init_regex_handlers(self):
