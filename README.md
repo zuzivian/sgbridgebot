@@ -4,6 +4,21 @@ that is commonly played in Singapore.
 #### Author: Nathaniel Wong | Version: 0.1.3-alpha
 
 
+# Runtime and dependency compatibility
+
+This project currently uses the legacy `python-telegram-bot` handler style
+(`Updater`, `CommandHandler`, `RegexHandler`).
+
+To keep deployments reproducible and compatible with the current codebase:
+
++ Python runtime target: **3.10.x** (configured as `python-3.10.14`)
++ `python-telegram-bot`: **13.15**
+
+`python-telegram-bot` v20+ removed `Updater` and `RegexHandler`, so upgrading
+PTB to newer major versions requires a code migration to the `Application`
+API.
+
+
 # Introduction
 
 This project is under heavy development. sgBridgeBot allows users to play bridge
