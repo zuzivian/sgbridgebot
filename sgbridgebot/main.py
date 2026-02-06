@@ -19,7 +19,8 @@ def main():
                         level=logging.INFO)
 
     # provide TOKEN to initiate ChatBot
-    bot = ChatBot('608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
+    bot = ChatBot(token)
 
     # Default to webhook for public web-service deployments.
     # For VM/always-on workers, set BOT_MODE=polling.
@@ -32,6 +33,7 @@ def main():
         bot.start(1)
     else:
         raise ValueError("Invalid BOT_MODE '{}'. Expected 'webhook' or 'polling'.".format(mode))
+
 
 
 if __name__ == "__main__":
