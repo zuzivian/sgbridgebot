@@ -19,16 +19,22 @@ def _resolve_webhook_base_url():
         # Koyeb exposes this automatically for public services.
         domain = os.environ.get('KOYEB_PUBLIC_DOMAIN', '').strip()
         if domain:
-            base_url = 'https://' + domain
+            base_url = domain
 
     if not base_url:
         raise ValueError('Webhook mode requires WEBHOOK_BASE_URL or KOYEB_PUBLIC_DOMAIN.')
+
+    # Support both full URLs and bare domains from platform env vars.
+    if '://' not in base_url:
+        base_url = 'https://' + base_url
 
     parsed = urlparse(base_url)
     host = (parsed.hostname or '').lower()
 
     if parsed.scheme != 'https':
         raise ValueError('WEBHOOK_BASE_URL must be an https URL.')
+    if not host:
+        raise ValueError('WEBHOOK_BASE_URL must include a valid public hostname.')
     if host in {'0.0.0.0', '127.0.0.1', 'localhost'}:
         raise ValueError('WEBHOOK_BASE_URL must be a public hostname, not {}.'.format(host))
 
