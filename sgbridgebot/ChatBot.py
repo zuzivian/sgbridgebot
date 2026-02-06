@@ -8,6 +8,20 @@ from sgbridgebot.CommandUtils import CommandUtils
 from sgbridgebot.ChatHandler import ChatHandler
 from urllib.parse import urlparse
 import os
+import logging
+
+
+
+logger = logging.getLogger(__name__)
+
+
+def _mask_token(token):
+    """Return a redacted token representation safe for logs."""
+    if not token:
+        return '<empty>'
+    if len(token) <= 8:
+        return '<redacted:{} chars>'.format(len(token))
+    return '{}...{}'.format(token[:4], token[-4:])
 
 
 
@@ -15,11 +29,14 @@ def _resolve_webhook_base_url():
     """Return public HTTPS base URL for webhook registration."""
     # Explicit override first
     base_url = os.environ.get('WEBHOOK_BASE_URL', '').strip()
+    logger.info('Resolving webhook base URL (WEBHOOK_BASE_URL set=%s, KOYEB_PUBLIC_DOMAIN set=%s)',
+                bool(base_url), bool(os.environ.get('KOYEB_PUBLIC_DOMAIN', '').strip()))
     if not base_url:
         # Koyeb exposes this automatically for public services.
         domain = os.environ.get('KOYEB_PUBLIC_DOMAIN', '').strip()
         if domain:
             base_url = domain
+            logger.info('Using KOYEB_PUBLIC_DOMAIN to build webhook base URL: %s', domain)
 
     if not base_url:
         raise ValueError('Webhook mode requires WEBHOOK_BASE_URL or KOYEB_PUBLIC_DOMAIN.')
@@ -30,6 +47,8 @@ def _resolve_webhook_base_url():
 
     parsed = urlparse(base_url)
     host = (parsed.hostname or '').lower()
+    logger.info('Parsed webhook base URL -> scheme=%s host=%s path=%s',
+                parsed.scheme, host or '<empty>', parsed.path or '<empty>')
 
     if parsed.scheme != 'https':
         raise ValueError('WEBHOOK_BASE_URL must be an https URL.')
@@ -38,7 +57,9 @@ def _resolve_webhook_base_url():
     if host in {'0.0.0.0', '127.0.0.1', 'localhost'}:
         raise ValueError('WEBHOOK_BASE_URL must be a public hostname, not {}.'.format(host))
 
-    return base_url.rstrip('/')
+    normalized = base_url.rstrip('/')
+    logger.info('Resolved webhook base URL: %s', normalized)
+    return normalized
 
 class ChatBot(object):
 
@@ -88,6 +109,12 @@ class ChatBot(object):
             port = int(os.environ.get('PORT', '8443'))
             webhook_base_url = _resolve_webhook_base_url()
             webhook_url = webhook_base_url + '/' + token
+
+            logger.info('Starting webhook listener on 0.0.0.0:%s', port)
+            logger.info('Registering Telegram webhook URL: %s/<token:%s>',
+                        webhook_base_url, _mask_token(token))
+            logger.info('Webhook URL diagnostics: length=%s token_length=%s',
+                        len(webhook_url), len(token))
 
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=port,
