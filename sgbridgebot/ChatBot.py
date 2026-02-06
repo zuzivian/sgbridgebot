@@ -6,7 +6,33 @@ from telegram.ext import Updater, CommandHandler, RegexHandler
 from sgbridgebot.GameManager import GameManager
 from sgbridgebot.CommandUtils import CommandUtils
 from sgbridgebot.ChatHandler import ChatHandler
+from urllib.parse import urlparse
 import os
+
+
+
+def _resolve_webhook_base_url():
+    """Return public HTTPS base URL for webhook registration."""
+    # Explicit override first
+    base_url = os.environ.get('WEBHOOK_BASE_URL', '').strip()
+    if not base_url:
+        # Koyeb exposes this automatically for public services.
+        domain = os.environ.get('KOYEB_PUBLIC_DOMAIN', '').strip()
+        if domain:
+            base_url = 'https://' + domain
+
+    if not base_url:
+        raise ValueError('Webhook mode requires WEBHOOK_BASE_URL or KOYEB_PUBLIC_DOMAIN.')
+
+    parsed = urlparse(base_url)
+    host = (parsed.hostname or '').lower()
+
+    if parsed.scheme != 'https':
+        raise ValueError('WEBHOOK_BASE_URL must be an https URL.')
+    if host in {'0.0.0.0', '127.0.0.1', 'localhost'}:
+        raise ValueError('WEBHOOK_BASE_URL must be a public hostname, not {}.'.format(host))
+
+    return base_url.rstrip('/')
 
 class ChatBot(object):
 
@@ -54,7 +80,7 @@ class ChatBot(object):
         else:
             token = self.token
             port = int(os.environ.get('PORT', '8443'))
-            webhook_base_url = os.environ['WEBHOOK_BASE_URL'].rstrip('/')
+            webhook_base_url = _resolve_webhook_base_url()
             webhook_url = webhook_base_url + '/' + token
 
             self.updater.start_webhook(listen="0.0.0.0",
