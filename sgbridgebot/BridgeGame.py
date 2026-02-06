@@ -1,7 +1,7 @@
 from telegram.ext import Updater, CommandHandler
 from telegram import User, Chat
-from BridgePlayer import BridgePlayer
-from BridgeCard import BridgeCard
+from sgbridgebot.BridgePlayer import BridgePlayer
+from sgbridgebot.BridgeCard import BridgeCard
 import uuid, random, time
 
 BOT_PAUSE = 0.5

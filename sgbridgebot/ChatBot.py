@@ -3,9 +3,9 @@
 from telegram.error import (TelegramError, Unauthorized, BadRequest,
                             TimedOut, ChatMigrated, NetworkError)
 from telegram.ext import Updater, CommandHandler, RegexHandler
-from GameManager import GameManager
-from CommandUtils import CommandUtils
-from ChatHandler import ChatHandler
+from sgbridgebot.GameManager import GameManager
+from sgbridgebot.CommandUtils import CommandUtils
+from sgbridgebot.ChatHandler import ChatHandler
 import os
 
 class ChatBot(object):

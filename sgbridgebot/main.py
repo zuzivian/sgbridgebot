@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ChatBot import ChatBot
+from sgbridgebot.ChatBot import ChatBot
 import logging
 import os
 import sys

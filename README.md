@@ -47,13 +47,13 @@ Exact launch commands:
 
 ```bash
 # Webhook mode (explicit)
-BOT_MODE=webhook python3 sgbridgebot/main.py
+BOT_MODE=webhook python3 -m sgbridgebot.main
 
 # Webhook mode (default when BOT_MODE is unset)
-python3 sgbridgebot/main.py
+python3 -m sgbridgebot.main
 
 # Polling mode
-BOT_MODE=polling python3 sgbridgebot/main.py
+BOT_MODE=polling python3 -m sgbridgebot.main
 ```
 
 # Features
