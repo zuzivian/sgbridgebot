@@ -50,13 +50,15 @@ class ChatBot(object):
             self.updater.start_polling()
             self.updater.idle()
         else:
-            TOKEN = self.token
-            PORT = int(os.environ.get('PORT', '8443'))
-            webhook_base_url = os.environ.get('WEBHOOK_BASE_URL', 'https://sgbridgebot.herokuapp.com').rstrip('/')
+            token = self.token
+            port = int(os.environ.get('PORT', '8443'))
+            webhook_base_url = os.environ['WEBHOOK_BASE_URL'].rstrip('/')
+            webhook_url = webhook_base_url + '/' + token
+
             self.updater.start_webhook(listen="0.0.0.0",
-                                  port=PORT,
-                                  url_path=TOKEN)
-            self.updater.bot.set_webhook(webhook_base_url + "/" + TOKEN)
+                                  port=port,
+                                  url_path=token)
+            self.updater.bot.set_webhook(webhook_url)
             self.updater.idle()
 
     def init_regex_handlers(self):

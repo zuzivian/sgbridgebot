@@ -3,6 +3,7 @@
 from ChatBot import ChatBot
 import logging
 import os
+import sys
 
 '''
 sgbridgebot.py
@@ -18,8 +19,15 @@ def main():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.INFO)
 
+    required_env_vars = ['TELEGRAM_BOT_TOKEN', 'PORT', 'WEBHOOK_BASE_URL']
+    missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
+
+    if missing_vars:
+        logging.error('Missing required environment variables: %s', ', '.join(missing_vars))
+        sys.exit(1)
+
     # provide TOKEN to initiate ChatBot
-    token = os.environ.get('TELEGRAM_BOT_TOKEN', '608173029:AAFXYqVYU6pDZlRAEdNV7PzuOqkAKilDDCg')
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
     bot = ChatBot(token)
 
     # Default to webhook for public web-service deployments.
