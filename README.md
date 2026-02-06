@@ -103,7 +103,7 @@ Deployment compatibility targets for this codebase:
 Before starting the bot in production, set the following environment variables:
 
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token used to initialize `ChatBot`.
-- `PORT`: Port to bind the webhook server (e.g. provided by Heroku).
+- `PORT`: Port to bind the webhook server (must be non-privileged `>=1024`; on Koyeb/Render this should be platform-injected, not hardcoded).
 - `WEBHOOK_BASE_URL`: Public HTTPS base URL for webhook mode (for example `https://your-app.herokuapp.com`).
   - Optional on Koyeb if `KOYEB_PUBLIC_DOMAIN` is present; the bot will auto-build `https://<KOYEB_PUBLIC_DOMAIN>`.
 
@@ -113,7 +113,7 @@ The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_
 
 - Do **not** set `WEBHOOK_BASE_URL` to `0.0.0.0`, `127.0.0.1`, or `localhost`. Telegram rejects those with
   `Bad webhook: ip address 0.0.0.0 is reserved`.
-- Ensure `BOT_MODE=webhook` for Koyeb Web Services so the process binds `$PORT` and passes TCP health checks.
+- Ensure `BOT_MODE=webhook` for Koyeb Web Services so the process binds the platform-injected `$PORT` and passes TCP health checks.
 - You can either set `WEBHOOK_BASE_URL` to your public app URL, or rely on Koyeb's `KOYEB_PUBLIC_DOMAIN`.
 
 

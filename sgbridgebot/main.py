@@ -39,7 +39,11 @@ def main():
         if not (os.environ.get('WEBHOOK_BASE_URL') or os.environ.get('KOYEB_PUBLIC_DOMAIN')):
             logging.error('Missing WEBHOOK_BASE_URL or KOYEB_PUBLIC_DOMAIN for webhook mode')
             sys.exit(1)
-        bot.start(0)
+        try:
+            bot.start(0)
+        except ValueError as exc:
+            logging.error('Webhook startup failed: %s', exc)
+            sys.exit(1)
     elif mode == 'polling':
         bot.start(1)
     else:
