@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from telegram import InlineKeyboardButton, ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup
 from telegram.error import TimedOut, BadRequest
 from sgbridgebot.StringUtils import StringUtils
 from sgbridgebot.BridgeCard import BridgeCard
@@ -94,12 +94,12 @@ class ChatHandler(object):
     '''
 
     def request_bid(self, player):
-        keyboard = [[InlineKeyboardButton('PASS')]]
+        keyboard = [['PASS']]
         suits = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660', 'NT']
         for x in range(7):
             keyboard.append([])
             for y in range(5):
-                keyboard[x+1].append(InlineKeyboardButton(str(x+1)+suits[y]))
+                keyboard[x+1].append(str(x+1)+suits[y])
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         self.send_message(player.chat_id, player.disp_name() + ', please select a bid:', reply_markup=reply_markup)
         return
@@ -131,7 +131,7 @@ class ChatHandler(object):
         for x in range(13):
             keyboard.append([])
             for y in range(4):
-                keyboard[x].append( InlineKeyboardButton(repr(BridgeCard((12-x)+y*13))) )
+                keyboard[x].append(repr(BridgeCard((12-x)+y*13)))
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
         if player.username is not None:
             disp_name = '@'+player.username
@@ -154,7 +154,7 @@ class ChatHandler(object):
         gameinfo = 'Contract: ' + self.str_utils.bid_id_to_str(game.contract)
         gameinfo += ' | Declarer: ' + game.declarer.disp_name()
         gameinfo += ' | Partner: ' + repr(game.partner_card)
-        keyboard = [[InlineKeyboardButton(gameinfo)]]
+        keyboard = [[gameinfo]]
         counter = 0
         l = [player.get_all_suit(suit) for suit in range(4)]
         num_rows = max( 3, len(max(l, key=len)) )
@@ -162,9 +162,9 @@ class ChatHandler(object):
             keyboard.append([])
             for s in range(4):
                 if len(l[s]) > i:
-                    keyboard[-1].append( InlineKeyboardButton(repr(l[s][i])) )
+                    keyboard[-1].append(repr(l[s][i]))
                 else:
-                    keyboard[-1].append( InlineKeyboardButton(' ') )
+                    keyboard[-1].append(' ')
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
         if player.username is not None:
             disp_name = '@'+player.username
