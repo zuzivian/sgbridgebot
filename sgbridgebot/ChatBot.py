@@ -85,8 +85,8 @@ class ChatBot(object):
 
             self.updater.start_webhook(listen="0.0.0.0",
                                   port=port,
-                                  url_path=token)
-            self.updater.bot.set_webhook(webhook_url)
+                                  url_path=token,
+                                  webhook_url=webhook_url)
             self.updater.idle()
 
     def init_regex_handlers(self):
