@@ -21,6 +21,26 @@ https://en.wikipedia.org/wiki/Singaporean_bridge
 
 Link to telegram bot: http://t.me/sgbridgebot
 
+## Running the bot
+
+`sgbridgebot/main.py` supports two startup modes via `BOT_MODE`:
+
+- `webhook` -> runs `bot.start(0)` (recommended default for public web-service deployments)
+- `polling` -> runs `bot.start(1)` (recommended for VM/always-on worker setups)
+
+Exact launch commands:
+
+```bash
+# Webhook mode (explicit)
+BOT_MODE=webhook python3 sgbridgebot/main.py
+
+# Webhook mode (default when BOT_MODE is unset)
+python3 sgbridgebot/main.py
+
+# Polling mode
+BOT_MODE=polling python3 sgbridgebot/main.py
+```
+
 # Features
 
 + Game management system that is able to handle concurrent game sessions
