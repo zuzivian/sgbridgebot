@@ -108,3 +108,16 @@ Before starting the bot in production, set the following environment variables:
 
 The webhook URL is constructed at startup as `<WEBHOOK_BASE_URL>/<TELEGRAM_BOT_TOKEN>`.
 
+
+
+## Deployment troubleshooting
+
+If your build fails with:
+
+```
+fatal: No url found for submodule path 'python-telegram-bot' in .gitmodules
+```
+
+remove any stale git submodule entry named `python-telegram-bot` from the repo index.
+This project uses `requirements.txt` for `python-telegram-bot`, so it should not be
+tracked as a git submodule.
