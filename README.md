@@ -57,3 +57,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+# Deployment
+
+Before starting the bot in production, set the following environment variables:
+
+- `TELEGRAM_BOT_TOKEN`: Telegram bot token used to initialize `ChatBot`.
+- `PORT`: Port to bind the webhook server (e.g. provided by Heroku).
+- `WEBHOOK_BASE_URL`: Public HTTPS base URL for webhook mode (for example `https://your-app.herokuapp.com`).
+
+The webhook URL is constructed at startup as `<WEBHOOK_BASE_URL>/<TELEGRAM_BOT_TOKEN>`.
+
