@@ -1,6 +1,6 @@
-from telegram.error import TimedOut
 from sgbridgebot.BridgeGame import BridgeGame
 from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.retry_utils import retry_on_timeout
 import asyncio
 
 
@@ -10,13 +10,12 @@ class CommandUtils(object):
         self.chat = chat_handler
 
     async def reply_text(self, update, message):
-        while True:
-            try:
-                await update.message.reply_text(message)
-            except TimedOut:
-                await asyncio.sleep(0.5)
-                continue
-            break
+        return await retry_on_timeout(
+            "reply_text",
+            lambda: update.message.reply_text(message),
+            chat_id=update.effective_chat.id,
+            message_id=getattr(update.message, "message_id", None),
+        )
 
     async def forcestart(self, update, context):
         user = update.message.from_user
