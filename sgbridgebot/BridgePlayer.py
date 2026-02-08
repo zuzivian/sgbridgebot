@@ -46,7 +46,7 @@ class BridgePlayer:
         return self.id == other.id
 
     def player_to_bot(self):
-        self.is_bot = 1
+        self.is_bot = True
         self.chat_id = None
         self.first_name = 'Player' + str(random.randint(100,999))
         self.username = None
