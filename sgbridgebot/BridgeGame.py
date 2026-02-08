@@ -224,8 +224,10 @@ class BridgeGame:
                 self.state = GameState.PARTNER_CALL
                 await self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
                 await self.get_partner_choice()
+                return
             else:
                 await self.get_next_bid()
+                return
         elif (self.state == GameState.PARTNER_CALL):
             self.state = GameState.PLAY
             if self.contract % 5 == 4:

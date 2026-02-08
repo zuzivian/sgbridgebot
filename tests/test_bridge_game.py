@@ -149,6 +149,22 @@ def test_all_pass_auction_redeals_and_requests_bid_again(mock_handler, make_user
     assert redealt_hands != initial_hands
 
 
+
+
+def test_next_turn_from_auction_does_not_duplicate_first_card_prompt_for_bot_declarer(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    game.players[0].player_to_bot()
+    game.declarer = game.players[0]
+    game.contract = 0
+    game.state = 1
+    game.turn = 3
+
+    asyncio.run(game.next_turn())
+
+    request_card_events = [evt for evt in mock_handler.events if evt[0] == "request_card"]
+    assert len(request_card_events) == 1
+
 def test_partner_selection_maps_called_card_to_partner_player(mock_handler, make_user):
     game = asyncio.run(_build_started_game(mock_handler, make_user))
     game.state = GameState.PARTNER_CALL
