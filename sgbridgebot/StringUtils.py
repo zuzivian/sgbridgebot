@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 
 
-class StringUtils(object):
+class StringUtils:
 
     '''
     '''
 
     def __init__(self):
         self.type = None
-        self.suit_str = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660']
+        self.suit_str = ['\U00002663', '\U00002666', '\U00002764', '\U00002660']
 
     def player_name(self, player):
         return player.username if player.username else player.first_name
@@ -17,17 +16,15 @@ class StringUtils(object):
         return ", ".join([self.player_name(p) for p in game.players])
 
     def players_in_room(self, game):
-        return 'Number of players: {}/4\nPlayers in the room: {}'.format(
-            game.num_players(),
-            self.player_listing(game))
+        return f'Number of players: {game.num_players()}/4\nPlayers in the room: {self.player_listing(game)}'
 
     def joined_game(self, player, game):
-        join_remark = '{} joined the game.'.format(self.player_name(player))
+        join_remark = f'{self.player_name(player)} joined the game.'
         room_players = self.players_in_room(game)
         return join_remark + '\n\n' + room_players
 
     def left_game(self, player, game):
-        leave_remark = '{} left the game.'.format(self.player_name(player))
+        leave_remark = f'{self.player_name(player)} left the game.'
         room_players = self.players_in_room(game)
         return leave_remark + '\n\n' + room_players
 

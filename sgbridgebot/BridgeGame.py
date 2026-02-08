@@ -1,14 +1,16 @@
-from telegram import User
-from sgbridgebot.BridgePlayer import BridgePlayer
-from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
 import random
 import uuid
 
+from telegram import User
+
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.BridgePlayer import BridgePlayer
+
 BOT_PAUSE = 0.5
 
 
-class BridgeGame(object):
+class BridgeGame:
     """
     Creates an instance of a BridgeGame
     which includes all information about the game
@@ -184,6 +186,8 @@ class BridgeGame(object):
     async def end_game(self):
         self.state = 4
         required_tricks = 7 + self.contract//5
+        if self.declarer is None or self.partner is None:
+            raise RuntimeError('Game ended without declarer/partner assignments')
         declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
         declarers = [self.declarer, self.partner]
         if self.declarer == self.partner:
@@ -207,6 +211,8 @@ class BridgeGame(object):
     async def next_turn(self):
         self.turn = (self.turn+1) % 4
         if (self.state == 1):
+            if self.declarer is None:
+                raise RuntimeError('Declarer is undefined during bidding state')
             if (self.declarer.id == self.curr_player().id):
                 self.state = 2
                 await self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
@@ -317,6 +323,8 @@ class BridgeGame(object):
             elif (c.suit == best_suit and c.rank > best_rank):
                 best_rank = c.rank
                 w = id
+        if self.trick_start is None:
+            raise RuntimeError('Trick start is undefined')
         winner = (self.trick_start + w) % 4
 
         self.players[winner].tricks_won += 1

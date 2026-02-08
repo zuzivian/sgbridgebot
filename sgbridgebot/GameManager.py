@@ -1,6 +1,7 @@
 from sgbridgebot.BridgeGame import BridgeGame
 
-class GameManager(object):
+
+class GameManager:
         """
         Manages all instances of waiting and active BridgeGame,
         Manages player and bot events

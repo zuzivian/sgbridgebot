@@ -1,12 +1,14 @@
-# -*- coding: utf-8 -*-
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.error import TimedOut, BadRequest
-from sgbridgebot.StringUtils import StringUtils
-from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
 
-class ChatHandler(object):
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.error import BadRequest, TimedOut
+
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.StringUtils import StringUtils
+
+
+class ChatHandler:
 
     '''
     Handles requests to use the ChatBot, with help of StringUtils
@@ -94,7 +96,7 @@ class ChatHandler(object):
 
     async def request_bid(self, player):
         keyboard = [['PASS']]
-        suits = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660', 'NT']
+        suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660', 'NT']
         for x in range(7):
             keyboard.append([])
             for y in range(5):
@@ -130,7 +132,7 @@ class ChatHandler(object):
     '''
 
     async def request_partner_choice(self, player):
-        keyboard = []
+        keyboard: list[list[str]] = []
         for x in range(13):
             keyboard.append([])
             for y in range(4):
@@ -204,8 +206,8 @@ class ChatHandler(object):
             declarers.append(game.partner.disp_name())
         declarers_text = " and ".join(declarers)
         winners_text = " and ".join([p.disp_name() for p in winners])
-        message = '{} gained {} of the {} required tricks to win.\n\n'.format(declarers_text, bid, req)
-        message += 'Congrats to {}!\n\n'.format(winners_text)
+        message = f'{declarers_text} gained {bid} of the {req} required tricks to win.\n\n'
+        message += f'Congrats to {winners_text}!\n\n'
         message += 'Game ended, all players have been kicked from the room.'
         for chat_id in game.get_chat_ids():
             await self.send_message(chat_id, message)
