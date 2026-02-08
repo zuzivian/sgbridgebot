@@ -1,7 +1,7 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-#### Author: Nathaniel Wong | Version: 0.1.3-alpha
+#### Author: Nathaniel Wong | Version: 0.1.5-alpha
 
 Canonical version source: `sgbridgebot/__init__.py` (`__version__`).
 
@@ -13,7 +13,7 @@ This project now uses the modern `python-telegram-bot` async handler style
 
 Compatibility target:
 
-+ Python runtime target: **3.10.x** (configured as `python-3.10.14`)
++ Python compatibility target: **3.13.x** for deployment (`runtime.txt`) and CI
 + `python-telegram-bot`: **>=21,<22**
 
 
@@ -95,7 +95,7 @@ SOFTWARE.
 
 Deployment compatibility targets for this codebase:
 
-- Python: **3.10.14** (`runtime.txt`)
+- Python: **3.13.8** (`runtime.txt`)
 - `python-telegram-bot`: **>=21,<22** (`requirements.txt`)
 
 Before starting the bot in production, set the following environment variables:
@@ -130,18 +130,17 @@ tracked as a git submodule.
 
 ## GitHub branch protection and required checks
 
-After adding `.github/workflows/ci.yml`, configure your protected branch (typically `main`) with required status checks so merges are blocked when quality gates fail.
+Configure your protected branch (typically `main`) with required status checks so merges are blocked when quality gates fail.
 
 Recommended required checks from the CI workflow:
 
-- `Lint and tests (Python 3.10)`
-- `Lint and tests (Python 3.11)`
-- `Packaging/import smoke (Python 3.10)`
+- `Lint, type-check, and tests (Python 3.13)`
+- `Packaging/import smoke (Python 3.13)`
 
 Suggested setup path:
 
 1. GitHub repository **Settings** -> **Branches**.
 2. Add/Edit a branch protection rule for `main`.
 3. Enable **Require status checks to pass before merging**.
-4. Select the three checks above.
+4. Select the two checks above.
 

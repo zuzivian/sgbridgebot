@@ -9,6 +9,19 @@ Build numbers are included in the alpha stage of development, and will be droppe
 Canonical package version is defined in `sgbridgebot/__init__.py` as `__version__`, and release entries should match it.
 
 
+## 0.1.5-alpha
+Python runtime/tooling refresh
++ Standardized project Python targets on 3.13.8 across runtime, local tooling, and CI
++ Replaced multi-version CI matrix with a single latest-stable Python 3.13 checks job
++ Updated packaging smoke check and branch-protection docs to target Python 3.13
+
+## 0.1.4-alpha
+Maintenance and deployment hardening
++ Added CI matrix coverage for Python 3.10 and 3.11
++ Added packaging/import smoke check to CI for Python 3.10
++ Aligned README branch protection guidance with actual CI checks
++ Added TODO note to improve bot bidding aggressiveness with strong hands
+
 ## 0.1.3-alpha: build 180608/2100
 Bug fixes
 + Fixed win conditions when calling ownself as partner
