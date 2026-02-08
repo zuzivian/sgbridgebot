@@ -1,6 +1,8 @@
+import logging
 import asyncio
 
 from telegram import ReplyKeyboardRemove
+from telegram.error import TimedOut
 
 from sgbridgebot.ChatHandler import ChatHandler
 
@@ -101,3 +103,45 @@ def test_request_card_builds_keyboard_without_name_error():
     assert calls[0]["chat_id"] == 1001
     assert "please choose a card to play" in calls[0]["message"]
     assert calls[0]["reply_markup"] is not None
+
+
+class _TimeoutThenSuccessBot:
+    def __init__(self):
+        self.calls = 0
+
+    async def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise TimedOut("timeout")
+        return {"chat_id": chat_id, "message": message}
+
+
+def test_send_message_retries_and_logs_timeout_warning(caplog):
+    handler = ChatHandler(bot=_TimeoutThenSuccessBot())
+
+    with caplog.at_level(logging.WARNING):
+        response = asyncio.run(handler.send_message(1001, "hello"))
+
+    assert response["chat_id"] == 1001
+    assert "Timed out error in bot.send_message, retrying" in caplog.text
+
+
+class _TimeoutThenEditSuccessBot:
+    def __init__(self):
+        self.calls = 0
+
+    async def edit_message_text(self, text, chat_id, message_id, parse_mode=None, reply_markup=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise TimedOut("timeout")
+        return {"chat_id": chat_id, "message_id": message_id, "text": text}
+
+
+def test_edit_message_text_retries_and_logs_timeout_warning(caplog):
+    handler = ChatHandler(bot=_TimeoutThenEditSuccessBot())
+
+    with caplog.at_level(logging.WARNING):
+        response = asyncio.run(handler.edit_message_text("hi", 1001, 42))
+
+    assert response["message_id"] == 42
+    assert "Timed out error in bot.edit_message_text, retrying" in caplog.text
