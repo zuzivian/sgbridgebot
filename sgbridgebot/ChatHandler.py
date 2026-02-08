@@ -159,8 +159,8 @@ class ChatHandler(object):
         for i in range(num_rows):
             keyboard.append([])
             for s in range(4):
-                if len(l[s]) > i:
-                    keyboard[-1].append(repr(l[s][i]))
+                if len(cards_by_suit[s]) > i:
+                    keyboard[-1].append(repr(cards_by_suit[s][i]))
                 else:
                     keyboard[-1].append(' ')
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)

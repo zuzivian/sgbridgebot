@@ -1,7 +1,9 @@
 from telegram import User
 from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.BridgeCard import BridgeCard
-import uuid, random, asyncio
+import asyncio
+import random
+import uuid
 
 BOT_PAUSE = 0.5
 

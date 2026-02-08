@@ -134,9 +134,9 @@ After adding `.github/workflows/ci.yml`, configure your protected branch (typica
 
 Recommended required checks from the CI workflow:
 
-- `Lint (ruff + flake8 + mypy)`
-- `Test (pytest)`
-- `Packaging and import smoke checks`
+- `Lint and tests (Python 3.10)`
+- `Lint and tests (Python 3.11)`
+- `Packaging/import smoke (Python 3.10)`
 
 Suggested setup path:
 
@@ -145,4 +145,3 @@ Suggested setup path:
 3. Enable **Require status checks to pass before merging**.
 4. Select the three checks above.
 
-This repository also includes `.github/workflows/deploy.yml`, which is intentionally gated to published releases that target `main` and validates that CI has already succeeded for the release target before running deploy steps.
