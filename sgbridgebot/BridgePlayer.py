@@ -121,6 +121,8 @@ class BridgePlayer:
         return self.hand_score(self.get_all_suit(suit))
 
     def make_auto_bid(self, contract):
+        # TODO: Improve bidding aggressiveness. Bots are currently too conservative and
+        # do not fully exploit strong hands during competitive auctions.
         best_suit = self.get_best_suit()
         hand_quality = 0.4*(self.hand_score(self.hand)/2 + self.suit_score(best_suit))
         if contract > 33 or random.randint(0, ((2*contract+2) ** 2)) > hand_quality:
