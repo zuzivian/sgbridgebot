@@ -51,8 +51,17 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lint-reports
+          name: lint-reports-py${{ matrix.python-version }}-attempt${{ github.run_attempt }}
           path: artifacts/
+
+      - name: Validate workflow YAML parsing
+        run: |
+          python - <<'PY'
+          import yaml
+          with open('.github/workflows/ci.yml', 'r', encoding='utf-8') as f:
+              yaml.safe_load(f)
+          print('Workflow YAML parsed successfully')
+          PY
 
   test:
     name: Test (pytest)
