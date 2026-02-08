@@ -1,5 +1,4 @@
 from sgbridgebot.BridgeGame import BridgeGame
-import logging
 
 class GameManager(object):
         """
@@ -107,17 +106,33 @@ class GameManager(object):
 
         # scan list of games that need updating
         def update_gamelists(self):
-            # move full games to active list
-            for g in list(self.waiting_games):
-                if g.num_players() == 4:
-                    self.start_game(g.id)
-                if g.num_players() == 0:
-                    self.destroy_game(g.id)
-            # remove games that no longer have real players
-            for g in list(self.active_games):
+            to_start = []
+            to_destroy = []
+            to_end = []
+
+            # identify waiting games to transition/remove
+            for g in self.waiting_games:
+                player_count = g.num_players()
+                if player_count == 4:
+                    to_start.append(g.id)
+                elif player_count == 0:
+                    to_destroy.append(g.id)
+
+            # identify active games that no longer have real players
+            for g in self.active_games:
                 users = 0
                 for p in g.players:
                     if not p.is_bot:
                         users += 1
                 if users == 0:
-                    self.end_game(g.id)
+                    to_end.append(g.id)
+
+            # apply waiting game transitions/removals
+            for game_id in to_start:
+                self.start_game(game_id)
+            for game_id in to_destroy:
+                self.destroy_game(game_id)
+
+            # apply active game removals
+            for game_id in to_end:
+                self.end_game(game_id)
