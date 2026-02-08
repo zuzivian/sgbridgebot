@@ -13,3 +13,8 @@ dist/
 
 # Local/system artifacts
 .DS_Store
+
+# Local environment files
+.env
+.env.*
+*.env
