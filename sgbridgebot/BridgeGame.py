@@ -1,10 +1,12 @@
-from telegram import User
-from sgbridgebot.BridgePlayer import BridgePlayer
-from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
 import logging
 import random
 import uuid
+
+from telegram import User
+
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.game_types import GameState, GameType
 
 BOT_PAUSE = 0.5
@@ -12,7 +14,7 @@ BOT_PAUSE = 0.5
 logger = logging.getLogger(__name__)
 
 
-class BridgeGame(object):
+class BridgeGame:
     """
     Creates an instance of a BridgeGame
     which includes all information about the game
@@ -188,6 +190,8 @@ class BridgeGame(object):
     async def end_game(self):
         self.state = GameState.SCORING
         required_tricks = 7 + self.contract//5
+        assert self.declarer is not None
+        assert self.partner is not None
         declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
         declarers = [self.declarer, self.partner]
         if self.declarer == self.partner:
@@ -195,13 +199,17 @@ class BridgeGame(object):
             declarers.remove(self.partner)
         if (declarer_tricks >= required_tricks):
             # declarer and partner won the game
-            await self.chat_handler.game_winners(0, declarers, declarer_tricks, required_tricks, self)
+            await self.chat_handler.game_winners(
+                0, declarers, declarer_tricks, required_tricks, self
+            )
         else:
             winning_team = list(self.players)
             winning_team.remove(self.declarer)
             if self.declarer != self.partner:
                 winning_team.remove(self.partner)
-            await self.chat_handler.game_winners(1, winning_team, declarer_tricks, required_tricks, self)
+            await self.chat_handler.game_winners(
+                1, winning_team, declarer_tricks, required_tricks, self
+            )
         # end of game.. exiting..
         self.players = []
 
@@ -211,6 +219,7 @@ class BridgeGame(object):
     async def next_turn(self):
         self.turn = (self.turn+1) % 4
         if (self.state == GameState.AUCTION):
+            assert self.declarer is not None
             if (self.declarer.id == self.curr_player().id):
                 self.state = GameState.PARTNER_CALL
                 await self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
@@ -272,7 +281,8 @@ class BridgeGame(object):
             await self.chat_handler.invalid_bid(self.curr_player())
         else:
             logger.warning(
-                "Invalid bid made by bot; ignoring bid and continuing auction context: game_id=%s, player_id=%s, contract=%s, attempted_bid=%s",
+                "Invalid bid made by bot; ignoring bid and continuing auction context: "
+                "game_id=%s, player_id=%s, contract=%s, attempted_bid=%s",
                 self.id,
                 self.curr_player().id,
                 self.contract,
@@ -327,6 +337,7 @@ class BridgeGame(object):
             elif (c.suit == best_suit and c.rank > best_rank):
                 best_rank = c.rank
                 w = id
+        assert self.trick_start is not None
         winner = (self.trick_start + w) % 4
 
         self.players[winner].tricks_won += 1

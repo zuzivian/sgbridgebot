@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
+import logging
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.error import BadRequest
-from sgbridgebot.StringUtils import StringUtils
+
 from sgbridgebot.BridgeCard import BridgeCard
 from sgbridgebot.retry_utils import retry_on_timeout
-import asyncio
-import logging
-
+from sgbridgebot.StringUtils import StringUtils
 
 logger = logging.getLogger(__name__)
 
-class ChatHandler(object):
+class ChatHandler:
 
     '''
     Handles requests to use the ChatBot, with help of StringUtils
@@ -38,12 +36,19 @@ class ChatHandler(object):
     async def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
         return await retry_on_timeout(
             "send_message",
-            lambda: self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup),
+            lambda: self.bot.send_message(
+                chat_id,
+                message,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup,
+            ),
             chat_id=chat_id,
             retry_log_message="Timed out error in bot.send_message, retrying",
         )
 
-    async def edit_message_text(self, text, chat_id, message_id, parse_mode=None, reply_markup=None):
+    async def edit_message_text(
+        self, text, chat_id, message_id, parse_mode=None, reply_markup=None
+    ):
         try:
             return await retry_on_timeout(
                 "edit_message_text",
@@ -59,7 +64,9 @@ class ChatHandler(object):
                 retry_log_message="Timed out error in bot.edit_message_text, retrying",
             )
         except BadRequest:
-            return await self.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
+            return await self.send_message(
+                chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup
+            )
 
     '''
     GENERAL
@@ -87,10 +94,14 @@ class ChatHandler(object):
 
     async def ask_private_chat(self, game):
         for chat_id in game.get_chat_ids():
-            await self.send_message(chat_id, "I've dealt your cards already!\nPM me @sgbridgebot and type /hand to see it.")
+            await self.send_message(
+                chat_id,
+                "I've dealt your cards already!\nPM me @sgbridgebot and type /hand to see it.",
+            )
 
     async def display_game_players(self, chat_id, game):
-        await self.send_message(chat_id, "For game with players " + ", ".join([p.disp_name() for p in game.players]) + ":")
+        players = ", ".join([p.disp_name() for p in game.players])
+        await self.send_message(chat_id, "For game with players " + players + ":")
 
 
     '''
@@ -99,13 +110,17 @@ class ChatHandler(object):
 
     async def request_bid(self, player):
         keyboard = [['PASS']]
-        suits = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660', 'NT']
+        suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660', 'NT']
         for x in range(7):
             keyboard.append([])
             for y in range(5):
                 keyboard[x+1].append(str(x+1)+suits[y])
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        await self.send_message(player.chat_id, player.disp_name() + ', please select a bid:', reply_markup=reply_markup)
+        await self.send_message(
+            player.chat_id,
+            player.disp_name() + ', please select a bid:',
+            reply_markup=reply_markup,
+        )
         return
 
     async def player_passed(self, player, game):
@@ -114,7 +129,9 @@ class ChatHandler(object):
 
     async def player_bid(self, bid, player, game):
         for chat_id in game.get_chat_ids():
-            await self.send_message(chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid))
+            await self.send_message(
+                chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid)
+            )
 
     async def invalid_bid(self, player):
         await self.send_message(player.chat_id, 'Invalid bid!')
@@ -135,7 +152,7 @@ class ChatHandler(object):
     '''
 
     async def request_partner_choice(self, player):
-        keyboard = []
+        keyboard: list[list[str]] = []
         for x in range(13):
             keyboard.append([])
             for y in range(4):
@@ -145,13 +162,21 @@ class ChatHandler(object):
             disp_name = '@'+player.username
         else:
             disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
-        await self.send_message(player.chat_id, disp_name + ', please select a partner card:', parse_mode='Markdown', reply_markup=reply_markup)
+        await self.send_message(
+            player.chat_id,
+            disp_name + ', please select a partner card:',
+            parse_mode='Markdown',
+            reply_markup=reply_markup,
+        )
         return
 
     async def partner_chosen(self, player, card_id, game):
-            card = BridgeCard(card_id)
-            for chat_id in game.get_chat_ids():
-                await self.send_message(chat_id, player.disp_name() + ' calls ' + repr(card) + ' as the partner card.')
+        card = BridgeCard(card_id)
+        for chat_id in game.get_chat_ids():
+            await self.send_message(
+                chat_id,
+                player.disp_name() + ' calls ' + repr(card) + ' as the partner card.',
+            )
 
 
     '''
@@ -177,7 +202,12 @@ class ChatHandler(object):
             disp_name = '@'+player.username
         else:
             disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
-        await self.send_message(player.chat_id, disp_name + ', please choose a card to play.', parse_mode='Markdown', reply_markup=reply_markup)
+        await self.send_message(
+            player.chat_id,
+            disp_name + ', please choose a card to play.',
+            parse_mode='Markdown',
+            reply_markup=reply_markup,
+        )
 
 
     async def card_played(self, player, card, game):
@@ -209,8 +239,8 @@ class ChatHandler(object):
             declarers.append(game.partner.disp_name())
         declarers_text = " and ".join(declarers)
         winners_text = " and ".join([p.disp_name() for p in winners])
-        message = '{} gained {} of the {} required tricks to win.\n\n'.format(declarers_text, bid, req)
-        message += 'Congrats to {}!\n\n'.format(winners_text)
+        message = f'{declarers_text} gained {bid} of the {req} required tricks to win.\n\n'
+        message += f'Congrats to {winners_text}!\n\n'
         message += 'Game ended, all players have been kicked from the room.'
         for chat_id in game.get_chat_ids():
             await self.send_message(chat_id, message)
