@@ -1,5 +1,4 @@
 from sgbridgebot.BridgeGame import BridgeGame
-import logging
 
 class GameManager(object):
         """
