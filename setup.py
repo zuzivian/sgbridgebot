@@ -8,5 +8,6 @@ setup(name='sgbridgebot',
       author_email='rubikcode@gmail.com',
       license='MIT',
       packages=find_packages(include=['sgbridgebot', 'sgbridgebot.*']),
+      install_requires=['python-telegram-bot[webhooks]>=21,<22'],
       extras_require={'dev': ['pytest>=8,<9']},
       zip_safe=False)
