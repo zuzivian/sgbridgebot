@@ -3,6 +3,8 @@ that is commonly played in Singapore.
 
 #### Author: Nathaniel Wong | Version: 0.1.3-alpha
 
+Canonical version source: `sgbridgebot/__init__.py` (`__version__`).
+
 
 # Runtime and dependency compatibility
 

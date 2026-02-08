@@ -1,0 +1,15 @@
+# Python bytecode and caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Packaging metadata
+*.egg-info/
+
+# Build/distribution artifacts
+build/
+dist/
+*.egg
+
+# Local/system artifacts
+.DS_Store
