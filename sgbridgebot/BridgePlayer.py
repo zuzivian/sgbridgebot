@@ -123,7 +123,7 @@ class BridgePlayer:
     def make_auto_bid(self, contract):
         best_suit = self.get_best_suit()
         hand_quality = 0.4*(self.hand_score(self.hand)/2 + self.suit_score(best_suit))
-        if contract > 33 or random.randint(0, (2*contract+2)^2) > hand_quality:
+        if contract > 33 or random.randint(0, ((2*contract+2) ** 2)) > hand_quality:
             return -1
         else:
             # can't go above 7NT
@@ -247,7 +247,7 @@ class BridgePlayer:
             if rank in [c.rank for c in cards_played]:
                 continue
             return card.rank == rank
-        return false
+        return False
 
     def get_cards_played_in_suit(self, suit, game):
         cards = []
