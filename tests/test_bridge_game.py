@@ -1,3 +1,4 @@
+import logging
 import asyncio
 
 from sgbridgebot.BridgeCard import BridgeCard
@@ -166,3 +167,19 @@ def test_partner_selection_rejects_unknown_card_ids(mock_handler, make_user):
     partner = game.player_holding_card(99)
 
     assert partner is None
+
+
+def test_process_bid_logs_warning_for_invalid_bot_bid(mock_handler, caplog):
+    game = BridgeGame(mock_handler, type=0)
+    game.id = "game-123"
+    bot_player = type("BotPlayer", (), {"id": 777, "is_bot": True})()
+    game.players = [bot_player]
+    game.turn = 0
+    game.contract = 10
+
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(game.process_bid(5))
+
+    assert "Invalid bid made by bot; ignoring bid and continuing auction context" in caplog.text
+    assert "game-123" in caplog.text
+    assert "777" in caplog.text

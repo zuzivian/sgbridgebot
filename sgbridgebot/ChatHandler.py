@@ -5,6 +5,11 @@ from telegram.error import BadRequest
 from sgbridgebot.StringUtils import StringUtils
 from sgbridgebot.BridgeCard import BridgeCard
 from sgbridgebot.retry_utils import retry_on_timeout
+import asyncio
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class ChatHandler(object):
 
