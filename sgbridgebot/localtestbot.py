@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Ensure package imports still work when this file is executed directly via
 # `python sgbridgebot/localtestbot.py` where sys.path[0] is this package dir.
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sgbridgebot.ChatBot import ChatBot
 import logging
 import os
+
+from sgbridgebot.ChatBot import ChatBot
 
 '''
 localtestbot.py

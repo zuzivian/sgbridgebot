@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from sgbridgebot.ChatBot import ChatBot
 import logging
 import os
 import sys
+
+from sgbridgebot.ChatBot import ChatBot
 
 '''
 sgbridgebot.py
@@ -44,7 +45,7 @@ def main():
     elif mode == 'polling':
         bot.start(1)
     else:
-        raise ValueError("Invalid BOT_MODE '{}'. Expected 'webhook' or 'polling'.".format(mode))
+        raise ValueError(f"Invalid BOT_MODE '{mode}'. Expected 'webhook' or 'polling'.")
 
 
 

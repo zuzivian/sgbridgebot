@@ -39,7 +39,7 @@ class BridgeCard(object):
         if not isinstance(id, int):
             raise TypeError('BridgeCard(): id must be an integer')
         if id < 0 or id > 51:
-            raise Exception('BridgeCard(): id is not valid (0-51)')
+            raise ValueError('BridgeCard(): id is not valid (0-51)')
         self.id = id
         self.rank = id % 13 + 2
         self.suit = id // 13

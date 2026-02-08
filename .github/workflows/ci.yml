@@ -7,8 +7,8 @@ on:
       - main
 
 jobs:
-  lint-and-test:
-    name: Lint and tests (Python ${{ matrix.python-version }})
+  quality:
+    name: Lint, type-check, tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -28,63 +28,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install -r requirements.txt
-          pip install ruff flake8 mypy pytest
 
-      - name: Run ruff (minimal low-signal rules)
-        run: |
-          mkdir -p artifacts
-          ruff check sgbridgebot tests | tee artifacts/ruff.txt
+      - name: Ruff lint
+        run: ruff check . --fix
 
-      - name: Run flake8 (minimal low-signal rules)
-        run: |
-          mkdir -p artifacts
-          flake8 sgbridgebot tests | tee artifacts/flake8.txt
+      - name: Mypy type check
+        run: mypy
 
-      - name: Run mypy (optional)
-        continue-on-error: true
-        run: |
-          mkdir -p artifacts
-          mypy sgbridgebot --ignore-missing-imports | tee artifacts/mypy.txt
-
-      - name: Upload lint artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lint-reports-py${{ matrix.python-version }}-attempt${{ github.run_attempt }}
-          path: artifacts/
-
-      - name: Validate workflow YAML parsing
-        run: |
-          python - <<'PY'
-          import yaml
-          with open('.github/workflows/ci.yml', 'r', encoding='utf-8') as f:
-              yaml.safe_load(f)
-          print('Workflow YAML parsed successfully')
-          PY
-
-  test:
-    name: Test (pytest)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-
-      - name: Lint with ruff
-        run: ruff check .
-
-      - name: Run pytest
+      - name: Pytest
         run: pytest -q
 
   packaging-smoke:

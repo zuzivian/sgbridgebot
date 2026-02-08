@@ -1,5 +1,6 @@
-from telegram import User
 import random
+
+from telegram import User
 
 
 class BridgePlayer:

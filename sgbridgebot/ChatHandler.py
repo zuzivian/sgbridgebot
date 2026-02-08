@@ -1,12 +1,13 @@
-# -*- coding: utf-8 -*-
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.error import TimedOut, BadRequest
-from sgbridgebot.StringUtils import StringUtils
-from sgbridgebot.BridgeCard import BridgeCard
-import asyncio
+from telegram.error import BadRequest, TimedOut
 
-class ChatHandler(object):
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.retry_utils import retry_async
+from sgbridgebot.StringUtils import StringUtils
+
+
+class ChatHandler:
 
     '''
     Handles requests to use the ChatBot, with help of StringUtils
@@ -31,30 +32,42 @@ class ChatHandler(object):
     # TODO: move wrapper to own object?
 
     async def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
-        msg = None
-        while True:
-            try:
-                msg = await self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
-            except TimedOut:
-                print("Timed out error in bot.send_message, retrying")
-                await asyncio.sleep(1.0)
-                continue
-            break
-        return msg
+        return await retry_async(
+            action=lambda: self.bot.send_message(
+                chat_id,
+                message,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup,
+            ),
+            retry_on=(TimedOut,),
+            delay_s=1.0,
+            on_retry=lambda _exc: print('Timed out error in bot.send_message, retrying'),
+        )
 
     async def edit_message_text(self, text, chat_id, message_id, parse_mode=None, reply_markup=None):
-        msg = None
-        while True:
+        async def _edit_message():
             try:
-                msg = await self.bot.edit_message_text(text, chat_id, message_id=message_id, parse_mode=parse_mode, reply_markup=reply_markup)
-            except TimedOut:
-                print("Timed out error in bot.edit_message_text, retrying")
-                await asyncio.sleep(1.0)
-                continue
+                return await self.bot.edit_message_text(
+                    text,
+                    chat_id,
+                    message_id=message_id,
+                    parse_mode=parse_mode,
+                    reply_markup=reply_markup,
+                )
             except BadRequest:
-                msg = await self.bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
-            break
-        return msg
+                return await self.bot.send_message(
+                    chat_id,
+                    text,
+                    parse_mode=parse_mode,
+                    reply_markup=reply_markup,
+                )
+
+        return await retry_async(
+            action=_edit_message,
+            retry_on=(TimedOut,),
+            delay_s=1.0,
+            on_retry=lambda _exc: print('Timed out error in bot.edit_message_text, retrying'),
+        )
 
     '''
     GENERAL
@@ -94,7 +107,7 @@ class ChatHandler(object):
 
     async def request_bid(self, player):
         keyboard = [['PASS']]
-        suits = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660', 'NT']
+        suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660', 'NT']
         for x in range(7):
             keyboard.append([])
             for y in range(5):
@@ -130,7 +143,7 @@ class ChatHandler(object):
     '''
 
     async def request_partner_choice(self, player):
-        keyboard = []
+        keyboard: list[list[str]] = []
         for x in range(13):
             keyboard.append([])
             for y in range(4):
@@ -204,8 +217,8 @@ class ChatHandler(object):
             declarers.append(game.partner.disp_name())
         declarers_text = " and ".join(declarers)
         winners_text = " and ".join([p.disp_name() for p in winners])
-        message = '{} gained {} of the {} required tricks to win.\n\n'.format(declarers_text, bid, req)
-        message += 'Congrats to {}!\n\n'.format(winners_text)
+        message = f'{declarers_text} gained {bid} of the {req} required tricks to win.\n\n'
+        message += f'Congrats to {winners_text}!\n\n'
         message += 'Game ended, all players have been kicked from the room.'
         for chat_id in game.get_chat_ids():
             await self.send_message(chat_id, message)
