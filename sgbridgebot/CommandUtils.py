@@ -1,11 +1,12 @@
-from sgbridgebot.BridgeGame import BridgeGame
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.retry_utils import retry_on_timeout
 import asyncio
+
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.BridgeGame import BridgeGame
 from sgbridgebot.game_types import GameState
+from sgbridgebot.retry_utils import retry_on_timeout
 
 
-class CommandUtils(object):
+class CommandUtils:
     def __init__(self, manager, chat_handler):
         self.manager = manager
         self.chat = chat_handler
@@ -110,4 +111,7 @@ class CommandUtils(object):
                     await self.reply_text(update, 'Invalid card!')
                     await self.chat.request_card(game.curr_player(), game)
             else:
-                await self.reply_text(update, 'Not you turn to play a card! Current turn: {}'.format(game.curr_player().disp_name()))
+                await self.reply_text(
+                    update,
+                    f'Not you turn to play a card! Current turn: {game.curr_player().disp_name()}',
+                )

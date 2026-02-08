@@ -47,4 +47,6 @@ async def retry_on_timeout(
             )
             await asyncio.sleep(delay)
 
+    if last_exception is None:
+        raise RuntimeError("retry_on_timeout exhausted without capturing TimedOut")
     raise last_exception
