@@ -116,3 +116,53 @@ def test_auction_transition_after_bid_and_three_passes(mock_handler, make_user):
     assert game.contract == 0
     assert game.declarer == game.players[0]
     assert any(evt[0] == "bid_winner" for evt in mock_handler.events)
+
+
+def test_all_pass_auction_redeals_and_requests_bid_again(mock_handler, make_user, monkeypatch):
+    shuffle_calls = {"count": 0}
+
+    def deterministic_shuffle(values):
+        shift = shuffle_calls["count"] % len(values)
+        values[:] = values[shift:] + values[:shift]
+        shuffle_calls["count"] += 1
+
+    monkeypatch.setattr("sgbridgebot.BridgeGame.random.shuffle", deterministic_shuffle)
+
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    initial_hands = [[card.id for card in player.hand] for player in game.players]
+
+    for _ in range(4):
+        asyncio.run(game.process_bid(-1))
+
+    assert game.state == 1
+    assert game.contract == -1
+    assert game.turn == 0
+    assert game.declarer == game.players[0]
+    assert game.consecutive_passes == 0
+    assert sum(1 for evt in mock_handler.events if evt[0] == "player_passed") == 4
+    assert sum(1 for evt in mock_handler.events if evt[0] == "request_bid") >= 2
+
+    redealt_hands = [[card.id for card in player.hand] for player in game.players]
+    assert redealt_hands != initial_hands
+
+
+def test_partner_selection_maps_called_card_to_partner_player(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    game.state = 2
+    game.turn = 0
+
+    called_card = game.players[2].hand[0]
+    game.partner = game.player_holding_card(called_card.id)
+    game.partner_card = BridgeCard(called_card.id)
+
+    assert game.partner == game.players[2]
+    assert game.partner_card.id == called_card.id
+
+
+def test_partner_selection_rejects_unknown_card_ids(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    partner = game.player_holding_card(99)
+
+    assert partner is None

@@ -30,7 +30,7 @@ def test_waiting_game_moves_to_active_when_four_players_join(mock_handler, make_
     assert manager.active_games[0].state == 1
 
 
-def test_update_gamelists_processes_all_waiting_transitions_without_skipping(mock_handler, make_user):
+def test_update_gamelists_processes_all_waiting_transitions_without_skipping(mock_handler):
     manager = GameManager(mock_handler)
 
     # Full waiting game should transition to active.
@@ -79,3 +79,32 @@ def test_update_gamelists_processes_all_active_removals_without_skipping(mock_ha
     assert bot_only_game_2 not in manager.active_games
     assert mixed_game in manager.active_games
     assert len(manager.active_games) == 1
+
+
+def test_update_gamelists_transitions_multiple_full_waiting_games_without_skip(mock_handler):
+    manager = GameManager(mock_handler)
+
+    full_game_1 = BridgeGame(mock_handler, 0)
+    full_game_2 = BridgeGame(mock_handler, 0)
+    partial_game = BridgeGame(mock_handler, 0)
+
+    for game, base_chat in ((full_game_1, 500), (full_game_2, 600)):
+        game.state = 1
+        game.players = [
+            type("Player", (), {"id": idx + 1, "chat_id": base_chat, "is_bot": False})()
+            for idx in range(4)
+        ]
+
+    partial_game.players = [type("Player", (), {"id": 99, "chat_id": 700, "is_bot": False})()]
+
+    manager.waiting_games = [full_game_1, full_game_2, partial_game]
+
+    manager.update_gamelists()
+
+    assert full_game_1 in manager.active_games
+    assert full_game_2 in manager.active_games
+    assert partial_game in manager.waiting_games
+    assert full_game_1 not in manager.waiting_games
+    assert full_game_2 not in manager.waiting_games
+    assert len(manager.active_games) == 2
+    assert len(manager.waiting_games) == 1

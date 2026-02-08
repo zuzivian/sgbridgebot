@@ -94,3 +94,13 @@ def test_remove_card_missing_card_returns_none_without_crashing():
 
     assert removed is None
     assert [card.id for card in player.hand] == [existing_card.id]
+
+
+def test_remove_card_missing_card_keeps_hand_intact_with_multiple_cards():
+    player = BridgePlayer()
+    player.hand = [BridgeCard(0), BridgeCard(10), BridgeCard(25)]
+
+    removed = player.remove_card(BridgeCard(51))
+
+    assert removed is None
+    assert [card.id for card in player.hand] == [0, 10, 25]

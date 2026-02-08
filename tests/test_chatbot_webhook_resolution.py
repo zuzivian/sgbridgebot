@@ -1,7 +1,9 @@
 import os
+from unittest import mock
 
 import pytest
 
+from sgbridgebot import main
 from sgbridgebot.ChatBot import _resolve_webhook_base_url, _resolve_webhook_listen_port
 
 
@@ -65,3 +67,33 @@ def test_resolve_webhook_listen_port_rejects_privileged_non_root(monkeypatch):
 
     with pytest.raises(ValueError, match="privileged"):
         _resolve_webhook_listen_port()
+
+
+def test_main_webhook_mode_starts_webhook_consistently_with_valid_resolution(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token-123")
+    monkeypatch.setenv("BOT_MODE", "webhook")
+    monkeypatch.setenv("WEBHOOK_BASE_URL", "https://example.com/")
+    monkeypatch.setenv("PORT", "8000")
+
+    bot_instance = mock.Mock()
+    with mock.patch.object(main, "ChatBot", return_value=bot_instance) as chat_bot_cls:
+        main.main()
+
+    chat_bot_cls.assert_called_once_with("token-123")
+    bot_instance.start.assert_called_once_with(0)
+
+
+def test_main_webhook_mode_exits_on_invalid_resolved_webhook_inputs(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token-123")
+    monkeypatch.setenv("BOT_MODE", "webhook")
+    monkeypatch.setenv("WEBHOOK_BASE_URL", "http://example.com")
+
+    bot_instance = mock.Mock()
+    bot_instance.start.side_effect = ValueError("WEBHOOK_BASE_URL must be an https URL")
+
+    with mock.patch.object(main, "ChatBot", return_value=bot_instance):
+        with pytest.raises(SystemExit) as exc:
+            main.main()
+
+    assert exc.value.code == 1
+    bot_instance.start.assert_called_once_with(0)
