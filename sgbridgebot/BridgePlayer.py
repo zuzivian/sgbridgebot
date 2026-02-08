@@ -261,5 +261,5 @@ class BridgePlayer:
         for c in self.hand:
             if c.id == card.id:
                 self.hand.remove(c)
-                break
-        return c
+                return c
+        return None
