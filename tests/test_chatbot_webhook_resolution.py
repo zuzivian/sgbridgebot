@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+import sgbridgebot.main as main_module
 from sgbridgebot.ChatBot import _resolve_webhook_base_url, _resolve_webhook_listen_port
 
 
@@ -65,3 +66,42 @@ def test_resolve_webhook_listen_port_rejects_privileged_non_root(monkeypatch):
 
     with pytest.raises(ValueError, match="privileged"):
         _resolve_webhook_listen_port()
+
+
+def test_main_uses_webhook_mode_by_default(monkeypatch):
+    starts = []
+
+    class DummyChatBot:
+        def __init__(self, token):
+            self.token = token
+
+        def start(self, mode):
+            starts.append(mode)
+
+    monkeypatch.setattr(main_module, "ChatBot", DummyChatBot)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.setenv("PORT", "8000")
+    monkeypatch.setenv("WEBHOOK_BASE_URL", "https://example.com")
+    monkeypatch.delenv("BOT_MODE", raising=False)
+
+    main_module.main()
+
+    assert starts == [0]
+
+
+def test_main_webhook_mode_exits_when_webhook_startup_fails(monkeypatch):
+    class DummyChatBot:
+        def __init__(self, token):
+            self.token = token
+
+        def start(self, mode):
+            raise ValueError("boom")
+
+    monkeypatch.setattr(main_module, "ChatBot", DummyChatBot)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.setenv("PORT", "8000")
+    monkeypatch.setenv("WEBHOOK_BASE_URL", "https://example.com")
+    monkeypatch.delenv("BOT_MODE", raising=False)
+
+    with pytest.raises(SystemExit, match="1"):
+        main_module.main()

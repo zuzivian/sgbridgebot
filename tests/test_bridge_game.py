@@ -73,3 +73,30 @@ def test_end_game_winner_determination(mock_handler, make_user):
     assert mock_handler.winner_payload["result"] == 0
     assert set(mock_handler.winner_payload["winner_ids"]) == {1, 3}
     assert mock_handler.winner_payload["required_tricks"] == 8
+
+
+def test_all_players_pass_ends_auction_and_requests_partner_choice(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    # Keep passing until auction transitions out of bidding, with a strict cap
+    # to ensure this test cannot hang even if bidding logic regresses.
+    for _ in range(8):
+        if game.state != 1:
+            break
+        asyncio.run(game.process_bid(-1))
+
+    assert game.state == 2
+    assert game.contract == -1
+    assert game.declarer.id == game.players[0].id
+    assert ("bid_winner", game.players[0].id, -1, game.id) in mock_handler.events
+    assert ("request_partner_choice", game.players[0].id) in mock_handler.events
+
+
+def test_partner_selection_matches_holder_of_selected_card(mock_handler):
+    game = BridgeGame(mock_handler, type=0)
+    players = [type("P", (), {"id": idx + 1, "hand": []})() for idx in range(4)]
+    players[2].hand = [BridgeCard(30)]
+    game.players = players
+
+    assert game.player_holding_card(30) is players[2]
+    assert game.player_holding_card(0) is None
