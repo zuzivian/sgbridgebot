@@ -1,7 +1,9 @@
 from telegram import User
 from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.BridgeCard import BridgeCard
-import uuid, random, asyncio
+import asyncio
+import random
+import uuid
 
 BOT_PAUSE = 0.5
 
@@ -289,7 +291,6 @@ class BridgeGame(object):
         # winner is p[0] by default for now
         trump_suit = self.contract % 5
         w = 0
-        leading_suit = self.trick[0].suit
         best_suit = self.trick[0].suit
         best_rank = self.trick[0].rank
         for id in range(4):

@@ -32,7 +32,6 @@ class ChatHandler(object):
 
     async def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
         msg = None
-        counter = 0
         while True:
             try:
                 msg = await self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
@@ -155,14 +154,13 @@ class ChatHandler(object):
         gameinfo += ' | Declarer: ' + game.declarer.disp_name()
         gameinfo += ' | Partner: ' + repr(game.partner_card)
         keyboard = [[gameinfo]]
-        counter = 0
-        l = [player.get_all_suit(suit) for suit in range(4)]
-        num_rows = max( 3, len(max(l, key=len)) )
+        cards_by_suit = [player.get_all_suit(suit) for suit in range(4)]
+        num_rows = max(3, len(max(cards_by_suit, key=len)))
         for i in range(num_rows):
             keyboard.append([])
             for s in range(4):
-                if len(l[s]) > i:
-                    keyboard[-1].append(repr(l[s][i]))
+                if len(cards_by_suit[s]) > i:
+                    keyboard[-1].append(repr(cards_by_suit[s][i]))
                 else:
                     keyboard[-1].append(' ')
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)

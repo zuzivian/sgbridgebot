@@ -1,5 +1,4 @@
 from sgbridgebot.BridgeGame import BridgeGame
-import logging
 
 class GameManager(object):
         """
@@ -61,7 +60,8 @@ class GameManager(object):
                     if chat.id in [p.chat_id for p in g.players] and g.type == 1:
                         found = 1
                         break
-                if not found: g = self.create_game(1)
+                if not found:
+                    g = self.create_game(1)
                 game_state = await g.add_player(player, chat.id)
                 self.update_gamelists()
                 return game_state
