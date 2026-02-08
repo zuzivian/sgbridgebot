@@ -31,8 +31,12 @@ def main():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.DEBUG)
 
+    if not os.environ.get('TELEGRAM_BOT_TOKEN'):
+        logging.error('Missing required environment variable: TELEGRAM_BOT_TOKEN')
+        sys.exit(1)
+
     # provide TOKEN to initiate ChatBot
-    token = os.environ.get('TELEGRAM_BOT_TOKEN', '577609760:AAFkuR2w7lWWyOlERf9NMyq0GYlf8WaoAZI')
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
     bot = ChatBot(token)
     bot.start(1)
 
