@@ -1,0 +1,58 @@
+name: Deploy
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Deploy from main release after CI success
+    if: github.event.release.target_commitish == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate CI check conclusion for release commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const sha = context.payload.release.target_commitish;
+
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: sha,
+            });
+
+            const ciChecks = checkRuns.check_runs.filter((check) => check.name === 'CI');
+            if (ciChecks.length === 0) {
+              core.setFailed('No CI check run found for this release target.');
+              return;
+            }
+
+            const successful = ciChecks.some((check) => check.conclusion === 'success');
+            if (!successful) {
+              core.setFailed('CI has not succeeded for this release target.');
+              return;
+            }
+
+            core.info('CI success confirmed. Proceeding with deploy job.');
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Deploy placeholder
+        run: |
+          echo "Release ${GITHUB_REF_NAME} is eligible for deploy."
+          echo "Replace this step with your Koyeb deployment command or API call."
