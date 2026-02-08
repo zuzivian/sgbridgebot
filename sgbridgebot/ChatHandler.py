@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.error import TimedOut, BadRequest
+from telegram.error import BadRequest
 from sgbridgebot.StringUtils import StringUtils
 from sgbridgebot.BridgeCard import BridgeCard
-import asyncio
+from sgbridgebot.retry_utils import retry_on_timeout
 
 class ChatHandler(object):
 
@@ -31,30 +31,28 @@ class ChatHandler(object):
     # TODO: move wrapper to own object?
 
     async def send_message(self, chat_id, message, parse_mode=None, reply_markup=None):
-        msg = None
-        while True:
-            try:
-                msg = await self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
-            except TimedOut:
-                print("Timed out error in bot.send_message, retrying")
-                await asyncio.sleep(1.0)
-                continue
-            break
-        return msg
+        return await retry_on_timeout(
+            "send_message",
+            lambda: self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup),
+            chat_id=chat_id,
+        )
 
     async def edit_message_text(self, text, chat_id, message_id, parse_mode=None, reply_markup=None):
-        msg = None
-        while True:
-            try:
-                msg = await self.bot.edit_message_text(text, chat_id, message_id=message_id, parse_mode=parse_mode, reply_markup=reply_markup)
-            except TimedOut:
-                print("Timed out error in bot.edit_message_text, retrying")
-                await asyncio.sleep(1.0)
-                continue
-            except BadRequest:
-                msg = await self.bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
-            break
-        return msg
+        try:
+            return await retry_on_timeout(
+                "edit_message_text",
+                lambda: self.bot.edit_message_text(
+                    text,
+                    chat_id,
+                    message_id=message_id,
+                    parse_mode=parse_mode,
+                    reply_markup=reply_markup,
+                ),
+                chat_id=chat_id,
+                message_id=message_id,
+            )
+        except BadRequest:
+            return await self.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup)
 
     '''
     GENERAL
