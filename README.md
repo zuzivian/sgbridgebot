@@ -6,17 +6,13 @@ that is commonly played in Singapore.
 
 # Runtime and dependency compatibility
 
-This project currently uses the legacy `python-telegram-bot` handler style
-(`Updater`, `CommandHandler`, `RegexHandler`).
+This project now uses the modern `python-telegram-bot` async handler style
+(`Application`, `CommandHandler`, `MessageHandler` with regex filters).
 
-To keep deployments reproducible and compatible with the current codebase:
+Compatibility target:
 
 + Python runtime target: **3.10.x** (configured as `python-3.10.14`)
-+ `python-telegram-bot`: **13.15**
-
-`python-telegram-bot` v20+ removed `Updater` and `RegexHandler`, so upgrading
-PTB to newer major versions requires a code migration to the `Application`
-API.
++ `python-telegram-bot`: **>=21,<22**
 
 
 # Introduction
@@ -98,7 +94,7 @@ SOFTWARE.
 Deployment compatibility targets for this codebase:
 
 - Python: **3.10.14** (`runtime.txt`)
-- `python-telegram-bot`: **13.15** (`requirements.txt`)
+- `python-telegram-bot`: **>=21,<22** (`requirements.txt`)
 
 Before starting the bot in production, set the following environment variables:
 
