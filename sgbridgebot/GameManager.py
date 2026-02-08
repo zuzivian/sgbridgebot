@@ -108,13 +108,13 @@ class GameManager(object):
         # scan list of games that need updating
         def update_gamelists(self):
             # move full games to active list
-            for g in self.waiting_games:
+            for g in list(self.waiting_games):
                 if g.num_players() == 4:
                     self.start_game(g.id)
                 if g.num_players() == 0:
                     self.destroy_game(g.id)
             # remove games that no longer have real players
-            for g in self.active_games:
+            for g in list(self.active_games):
                 users = 0
                 for p in g.players:
                     if not p.is_bot:

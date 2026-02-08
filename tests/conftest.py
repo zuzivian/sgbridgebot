@@ -54,6 +54,18 @@ class MockChatHandler:
     async def request_partner_choice(self, player):
         self.events.append(("request_partner_choice", player.id))
 
+    async def player_passed(self, player, game):
+        self.events.append(("player_passed", player.id, game.id))
+
+    async def player_bid(self, bid, player, game):
+        self.events.append(("player_bid", bid, player.id, game.id))
+
+    async def invalid_bid(self, player):
+        self.events.append(("invalid_bid", player.id))
+
+    async def partner_chosen(self, player, card_id, game):
+        self.events.append(("partner_chosen", player.id, card_id, game.id))
+
 
 @pytest.fixture
 def mock_handler():
