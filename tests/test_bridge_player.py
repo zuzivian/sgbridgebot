@@ -7,6 +7,31 @@ class DummyGame:
         self.trick_history = trick_history or []
 
 
+def test_bridge_player_defaults_to_bot_with_boolean_flag():
+    player = BridgePlayer()
+
+    assert isinstance(player.is_bot, bool)
+    assert player.is_bot is True
+
+
+def test_player_to_bot_sets_boolean_flag(monkeypatch):
+    player = BridgePlayer()
+    player.is_bot = False
+
+    monkeypatch.setattr("sgbridgebot.BridgePlayer.random.randint", lambda a, b: 123)
+    player.player_to_bot()
+
+    assert isinstance(player.is_bot, bool)
+    assert player.is_bot is True
+
+
+def test_bridge_player_user_has_boolean_non_bot_flag(make_user):
+    player = BridgePlayer(user=make_user(42, username="alice", first_name="Alice"))
+
+    assert isinstance(player.is_bot, bool)
+    assert player.is_bot is False
+
+
 def test_is_highest_remaining_in_suit_returns_boolean_without_exception():
     player = BridgePlayer()
     card = BridgeCard(0)  # 2 of clubs
