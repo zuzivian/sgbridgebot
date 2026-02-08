@@ -96,11 +96,15 @@ class CommandUtils(object):
             elif game.state == 3 and user.id == game.curr_player().id:
                 card = BridgeCard(card_id)
                 if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
-                    game.curr_player().remove_card(card)
-                    game.trick.append(card)
-                    if card.suit == game.get_trump_suit():
+                    removed_card = game.curr_player().remove_card(card)
+                    if removed_card is None:
+                        await self.reply_text(update, 'Could not play card. Please try again.')
+                        await self.chat.request_card(game.curr_player(), game)
+                        return
+                    game.trick.append(removed_card)
+                    if removed_card.suit == game.get_trump_suit():
                         game.trump_broken = 1
-                    await self.chat.card_played(game.curr_player(), card, game)
+                    await self.chat.card_played(game.curr_player(), removed_card, game)
                     await game.next_turn()
                 else:
                     await self.reply_text(update, 'Invalid card!')

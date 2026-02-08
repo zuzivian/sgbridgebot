@@ -31,6 +31,7 @@ class BridgeGame(object):
         self.players = []
         self.turn = 0 #1=,2,3,4 or 0 for nobody
         self.contract = -1 # winning bid
+        self.consecutive_passes = 0
         self.declarer = None
         self.partner_card = None
         self.partner = None
@@ -171,6 +172,8 @@ class BridgeGame(object):
                     wash = True
         await self.show_hands()
         self.turn = 0
+        self.contract = -1
+        self.consecutive_passes = 0
         self.declarer = self.curr_player()
         if not self.curr_player().is_bot:
             await self.chat_handler.request_bid(self.curr_player())
@@ -240,10 +243,22 @@ class BridgeGame(object):
 
     async def process_bid(self, bid):
         if bid == -1:
+            self.consecutive_passes += 1
             await self.chat_handler.player_passed(self.curr_player(), self)
+            if self.contract == -1 and self.consecutive_passes == 4:
+                # Four opening passes: redeal and restart auction from North.
+                self.consecutive_passes = 0
+                self.turn = 0
+                self.contract = -1
+                self.declarer = self.curr_player()
+                self.deal_hands()
+                await self.show_hands()
+                await self.get_next_bid()
+                return
             await self.next_turn()
         elif bid > self.contract:
             self.contract = bid
+            self.consecutive_passes = 0
             self.declarer = self.curr_player()
             await self.chat_handler.player_bid(bid, self.curr_player(), self)
             await self.next_turn()
@@ -289,7 +304,6 @@ class BridgeGame(object):
         # winner is p[0] by default for now
         trump_suit = self.contract % 5
         w = 0
-        leading_suit = self.trick[0].suit
         best_suit = self.trick[0].suit
         best_rank = self.trick[0].rank
         for id in range(4):

@@ -33,9 +33,6 @@ def main():
     mode = os.environ.get('BOT_MODE', default_mode).strip().lower()
 
     if mode == 'webhook':
-        if not os.environ.get('PORT'):
-            logging.error('Missing required environment variable in webhook mode: PORT')
-            sys.exit(1)
         if not (os.environ.get('WEBHOOK_BASE_URL') or os.environ.get('KOYEB_PUBLIC_DOMAIN')):
             logging.error('Missing WEBHOOK_BASE_URL or KOYEB_PUBLIC_DOMAIN for webhook mode')
             sys.exit(1)
