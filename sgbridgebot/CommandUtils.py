@@ -4,6 +4,8 @@ from telegram.error import TimedOut
 
 from sgbridgebot.BridgeCard import BridgeCard
 from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.retry_utils import retry_on_timeout
+from sgbridgebot.game_types import GameState
 
 
 class CommandUtils:
@@ -12,13 +14,12 @@ class CommandUtils:
         self.chat = chat_handler
 
     async def reply_text(self, update, message):
-        while True:
-            try:
-                await update.message.reply_text(message)
-            except TimedOut:
-                await asyncio.sleep(0.5)
-                continue
-            break
+        return await retry_on_timeout(
+            "reply_text",
+            lambda: update.message.reply_text(message),
+            chat_id=update.effective_chat.id,
+            message_id=getattr(update.message, "message_id", None),
+        )
 
     async def forcestart(self, update, context):
         user = update.message.from_user
@@ -26,12 +27,12 @@ class CommandUtils:
         if not game:
             await self.reply_text(update, 'Please join the game first before starting one!')
             return
-        if game.state != 0:
+        if game.state != GameState.SETUP:
             await self.reply_text(update, 'Game already started!')
             return
         while await game.add_bot() != -1:
             await asyncio.sleep(0.5)
-        if game.state == 0:
+        if game.state == GameState.SETUP:
             await game.start_game()
         self.manager.update_gamelists()
 
@@ -80,7 +81,7 @@ class CommandUtils:
         game = self.manager.find_game(user, update.effective_chat.id)
         bid_id = self.chat.str_utils.bid_str_to_id(update.message.text)
         if isinstance(game, BridgeGame):
-            if game.state != 1 or user.id != game.curr_player().id:
+            if game.state != GameState.AUCTION or user.id != game.curr_player().id:
                 await self.reply_text(update, 'You cannot bid at this time!')
                 return
             await game.process_bid(bid_id)
@@ -90,12 +91,12 @@ class CommandUtils:
         game = self.manager.find_game(user, update.effective_chat.id)
         card_id = self.chat.str_utils.card_str_to_id(update.message.text)
         if isinstance(game, BridgeGame):
-            if game.state == 2 and user.id == game.curr_player().id:
+            if game.state == GameState.PARTNER_CALL and user.id == game.curr_player().id:
                 game.partner = game.player_holding_card(card_id)
                 game.partner_card = BridgeCard(card_id)
                 await self.chat.partner_chosen(game.curr_player(), card_id, game)
                 await game.next_turn()
-            elif game.state == 3 and user.id == game.curr_player().id:
+            elif game.state == GameState.PLAY and user.id == game.curr_player().id:
                 card = BridgeCard(card_id)
                 if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
                     removed_card = game.curr_player().remove_card(card)
