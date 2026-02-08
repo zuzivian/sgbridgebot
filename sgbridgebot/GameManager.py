@@ -1,4 +1,5 @@
 from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.game_types import GameType
 
 class GameManager(object):
         """
@@ -57,11 +58,11 @@ class GameManager(object):
             if chat.type != 'private':
                 found = 0
                 for g in self.waiting_games:
-                    if chat.id in [p.chat_id for p in g.players] and g.type == 1:
+                    if chat.id in [p.chat_id for p in g.players] and g.type == GameType.PRIVATE:
                         found = 1
                         break
                 if not found:
-                    g = self.create_game(1)
+                    g = self.create_game(GameType.PRIVATE)
                 game_state = await g.add_player(player, chat.id)
                 self.update_gamelists()
                 return game_state
@@ -69,11 +70,11 @@ class GameManager(object):
                 # add player to oldest waiting game
                 game = None
                 for g in self.waiting_games:
-                    if len(g.players) < 4 and g.type == 0:
+                    if len(g.players) < 4 and g.type == GameType.PUBLIC:
                         game = g
                         break
                 if game is None:
-                    game = self.create_game(0)
+                    game = self.create_game(GameType.PUBLIC)
                 game_state = await game.add_player(player, chat.id)
             self.update_gamelists()
             if game_state is None:

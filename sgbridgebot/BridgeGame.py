@@ -4,6 +4,7 @@ from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
 import random
 import uuid
+from sgbridgebot.game_types import GameState, GameType
 
 BOT_PAUSE = 0.5
 
@@ -15,7 +16,7 @@ class BridgeGame(object):
 
     ATTRIBUTES
     players (listof Telegram.User)
-    state (int): 0=setup; 1=auction; 2=partner_call; 3=play; 4=scoring
+    state (GameState): game lifecycle state
 
     ARGS
     add_player(Telegram.User):
@@ -27,8 +28,8 @@ class BridgeGame(object):
     # Initial game state is an empty game in the PREGAME state
     def __init__(self, handler, type, num_bots=0):
         self.id = uuid.uuid1()
-        self.type = type # 0 for public, 1 for private
-        self.state = 0
+        self.type = GameType(type) # 0 for public, 1 for private
+        self.state = GameState.SETUP
         self.chat_handler = handler
         self.players = []
         self.turn = 0 #1=,2,3,4 or 0 for nobody
@@ -55,7 +56,7 @@ class BridgeGame(object):
     async def add_player(self, user, chat_id):
         if not isinstance(user, User) or not isinstance(chat_id, int):
             raise TypeError
-        elif self.num_players() == 4 or self.state != 0:
+        elif self.num_players() == 4 or self.state != GameState.SETUP:
             return -1 # full
         elif user.id in [p.id for p in self.players]:
             return -2 # already in game
@@ -76,7 +77,7 @@ class BridgeGame(object):
             #replace with bot if necessary
             for p in self.players:
                 if p.id == user.id:
-                    if (self.state > 0):
+                    if (self.state > GameState.SETUP):
                         p.player_to_bot()
                     else:
                         self.players.remove(p)
@@ -138,7 +139,7 @@ class BridgeGame(object):
         return
 
     async def show_hands(self, player=None):
-        if (self.type == 1):
+        if (self.type == GameType.PRIVATE):
             await self.chat_handler.ask_private_chat(self)
             return
         if player is not None:
@@ -157,7 +158,7 @@ class BridgeGame(object):
         '''
         Takes a game instance and deals cards to each player.
         '''
-        self.state = 1
+        self.state = GameState.AUCTION
         await self.chat_handler.starting_game(self)
         #give each player a direction
         dirs = 1
@@ -182,7 +183,7 @@ class BridgeGame(object):
         return
 
     async def end_game(self):
-        self.state = 4
+        self.state = GameState.SCORING
         required_tricks = 7 + self.contract//5
         declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
         declarers = [self.declarer, self.partner]
@@ -206,20 +207,20 @@ class BridgeGame(object):
 
     async def next_turn(self):
         self.turn = (self.turn+1) % 4
-        if (self.state == 1):
+        if (self.state == GameState.AUCTION):
             if (self.declarer.id == self.curr_player().id):
-                self.state = 2
+                self.state = GameState.PARTNER_CALL
                 await self.chat_handler.bid_winner(self.curr_player(), self.contract, self)
                 await self.get_partner_choice()
             else:
                 await self.get_next_bid()
-        elif (self.state == 2):
-            self.state = 3
+        elif (self.state == GameState.PARTNER_CALL):
+            self.state = GameState.PLAY
             if self.contract % 5 == 4:
                 # start with declarer
                 self.turn = (self.turn-1) % 4
             self.trick_start = self.curr_player().direction - 1
-        if (self.state == 3):
+        if (self.state == GameState.PLAY):
             #play logic
             if len(self.trick) == 4:
                 self.trick_history.append(self.trick)

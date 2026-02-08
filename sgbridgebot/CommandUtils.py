@@ -2,6 +2,7 @@ from telegram.error import TimedOut
 from sgbridgebot.BridgeGame import BridgeGame
 from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
+from sgbridgebot.game_types import GameState
 
 
 class CommandUtils(object):
@@ -24,12 +25,12 @@ class CommandUtils(object):
         if not game:
             await self.reply_text(update, 'Please join the game first before starting one!')
             return
-        if game.state != 0:
+        if game.state != GameState.SETUP:
             await self.reply_text(update, 'Game already started!')
             return
         while await game.add_bot() != -1:
             await asyncio.sleep(0.5)
-        if game.state == 0:
+        if game.state == GameState.SETUP:
             await game.start_game()
         self.manager.update_gamelists()
 
@@ -78,7 +79,7 @@ class CommandUtils(object):
         game = self.manager.find_game(user, update.effective_chat.id)
         bid_id = self.chat.str_utils.bid_str_to_id(update.message.text)
         if isinstance(game, BridgeGame):
-            if game.state != 1 or user.id != game.curr_player().id:
+            if game.state != GameState.AUCTION or user.id != game.curr_player().id:
                 await self.reply_text(update, 'You cannot bid at this time!')
                 return
             await game.process_bid(bid_id)
@@ -88,12 +89,12 @@ class CommandUtils(object):
         game = self.manager.find_game(user, update.effective_chat.id)
         card_id = self.chat.str_utils.card_str_to_id(update.message.text)
         if isinstance(game, BridgeGame):
-            if game.state == 2 and user.id == game.curr_player().id:
+            if game.state == GameState.PARTNER_CALL and user.id == game.curr_player().id:
                 game.partner = game.player_holding_card(card_id)
                 game.partner_card = BridgeCard(card_id)
                 await self.chat.partner_chosen(game.curr_player(), card_id, game)
                 await game.next_turn()
-            elif game.state == 3 and user.id == game.curr_player().id:
+            elif game.state == GameState.PLAY and user.id == game.curr_player().id:
                 card = BridgeCard(card_id)
                 if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
                     removed_card = game.curr_player().remove_card(card)

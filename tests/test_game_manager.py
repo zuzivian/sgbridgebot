@@ -2,6 +2,7 @@ import asyncio
 
 from sgbridgebot.BridgeGame import BridgeGame
 from sgbridgebot.GameManager import GameManager
+from sgbridgebot.game_types import GameState, GameType
 
 
 def test_join_and_leave_lifecycle_in_public_game(mock_handler, make_user):
@@ -27,22 +28,22 @@ def test_waiting_game_moves_to_active_when_four_players_join(mock_handler, make_
 
     assert len(manager.waiting_games) == 0
     assert len(manager.active_games) == 1
-    assert manager.active_games[0].state == 1
+    assert manager.active_games[0].state == GameState.AUCTION
 
 
 def test_update_gamelists_processes_all_waiting_transitions_without_skipping(mock_handler):
     manager = GameManager(mock_handler)
 
     # Full waiting game should transition to active.
-    full_game = BridgeGame(mock_handler, 0)
+    full_game = BridgeGame(mock_handler, GameType.PUBLIC)
     for idx in range(4):
         full_game.players.append(type("Player", (), {"id": idx + 1, "chat_id": 100, "is_bot": False})())
 
     # Empty waiting game should be destroyed.
-    empty_game = BridgeGame(mock_handler, 0)
+    empty_game = BridgeGame(mock_handler, GameType.PUBLIC)
 
     # Partial waiting game should remain waiting.
-    partial_game = BridgeGame(mock_handler, 0)
+    partial_game = BridgeGame(mock_handler, GameType.PUBLIC)
     partial_game.players.append(type("Player", (), {"id": 99, "chat_id": 101, "is_bot": False})())
 
     manager.waiting_games = [full_game, empty_game, partial_game]
@@ -59,13 +60,13 @@ def test_update_gamelists_processes_all_waiting_transitions_without_skipping(moc
 def test_update_gamelists_processes_all_active_removals_without_skipping(mock_handler):
     manager = GameManager(mock_handler)
 
-    bot_only_game_1 = BridgeGame(mock_handler, 0)
+    bot_only_game_1 = BridgeGame(mock_handler, GameType.PUBLIC)
     bot_only_game_1.players = [type("Player", (), {"is_bot": True})()]
 
-    bot_only_game_2 = BridgeGame(mock_handler, 0)
+    bot_only_game_2 = BridgeGame(mock_handler, GameType.PUBLIC)
     bot_only_game_2.players = [type("Player", (), {"is_bot": True})()]
 
-    mixed_game = BridgeGame(mock_handler, 0)
+    mixed_game = BridgeGame(mock_handler, GameType.PUBLIC)
     mixed_game.players = [
         type("Player", (), {"is_bot": True})(),
         type("Player", (), {"is_bot": False})(),
@@ -84,12 +85,12 @@ def test_update_gamelists_processes_all_active_removals_without_skipping(mock_ha
 def test_update_gamelists_transitions_multiple_full_waiting_games_without_skip(mock_handler):
     manager = GameManager(mock_handler)
 
-    full_game_1 = BridgeGame(mock_handler, 0)
-    full_game_2 = BridgeGame(mock_handler, 0)
-    partial_game = BridgeGame(mock_handler, 0)
+    full_game_1 = BridgeGame(mock_handler, GameType.PUBLIC)
+    full_game_2 = BridgeGame(mock_handler, GameType.PUBLIC)
+    partial_game = BridgeGame(mock_handler, GameType.PUBLIC)
 
     for game, base_chat in ((full_game_1, 500), (full_game_2, 600)):
-        game.state = 1
+        game.state = GameState.AUCTION
         game.players = [
             type("Player", (), {"id": idx + 1, "chat_id": base_chat, "is_bot": False})()
             for idx in range(4)
