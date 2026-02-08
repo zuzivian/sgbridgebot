@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  lint:
+    name: Lint (ruff + flake8 + mypy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff flake8 mypy pytest
+
+      - name: Run ruff
+        run: |
+          mkdir -p artifacts
+          ruff check . | tee artifacts/ruff.txt
+
+      - name: Run flake8
+        run: |
+          mkdir -p artifacts
+          flake8 sgbridgebot tests | tee artifacts/flake8.txt
+
+      - name: Run mypy (optional)
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts
+          mypy sgbridgebot --ignore-missing-imports | tee artifacts/mypy.txt
+
+      - name: Upload lint artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: artifacts/
+
+  test:
+    name: Test (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run pytest
+        run: |
+          mkdir -p artifacts
+          pytest -q --disable-warnings --maxfail=1 | tee artifacts/pytest.txt
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: artifacts/
+
+  smoke:
+    name: Packaging and import smoke checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install package and runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install .
+
+      - name: Run import smoke checks
+        run: |
+          mkdir -p artifacts
+          python - <<'PY' | tee artifacts/smoke.txt
+          import importlib
+
+          modules = [
+              "sgbridgebot",
+              "sgbridgebot.main",
+              "sgbridgebot.ChatBot",
+              "sgbridgebot.ChatHandler",
+          ]
+
+          for module in modules:
+              importlib.import_module(module)
+              print(f"ok: imported {module}")
+          PY
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-reports
+          path: artifacts/

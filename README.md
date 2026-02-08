@@ -125,3 +125,22 @@ fatal: No url found for submodule path 'python-telegram-bot' in .gitmodules
 remove any stale git submodule entry named `python-telegram-bot` from the repo index.
 This project uses `requirements.txt` for `python-telegram-bot`, so it should not be
 tracked as a git submodule.
+
+## GitHub branch protection and required checks
+
+After adding `.github/workflows/ci.yml`, configure your protected branch (typically `main`) with required status checks so merges are blocked when quality gates fail.
+
+Recommended required checks from the CI workflow:
+
+- `Lint (ruff + flake8 + mypy)`
+- `Test (pytest)`
+- `Packaging and import smoke checks`
+
+Suggested setup path:
+
+1. GitHub repository **Settings** -> **Branches**.
+2. Add/Edit a branch protection rule for `main`.
+3. Enable **Require status checks to pass before merging**.
+4. Select the three checks above.
+
+This repository also includes `.github/workflows/deploy.yml`, which is intentionally gated to published releases that target `main` and validates that CI has already succeeded for the release target before running deploy steps.
