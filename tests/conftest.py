@@ -48,6 +48,15 @@ class MockChatHandler:
     async def announce_trick(self, player, card, game):
         self.events.append(("announce_trick", player.id, card.id, game.id))
 
+    async def player_passed(self, player, game):
+        self.events.append(("player_passed", player.id, game.id))
+
+    async def player_bid(self, bid, player, game):
+        self.events.append(("player_bid", bid, player.id, game.id))
+
+    async def invalid_bid(self, player):
+        self.events.append(("invalid_bid", player.id))
+
     async def bid_winner(self, player, contract, game):
         self.events.append(("bid_winner", player.id, contract, game.id))
 

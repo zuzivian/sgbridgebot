@@ -154,8 +154,8 @@ class ChatHandler(object):
         gameinfo += ' | Declarer: ' + game.declarer.disp_name()
         gameinfo += ' | Partner: ' + repr(game.partner_card)
         keyboard = [[gameinfo]]
-        cards_by_suit = [player.get_all_suit(suit) for suit in range(4)]
-        num_rows = max(3, len(max(cards_by_suit, key=len)))
+        l = [player.get_all_suit(suit) for suit in range(4)]
+        num_rows = max( 3, len(max(l, key=len)) )
         for i in range(num_rows):
             keyboard.append([])
             for s in range(4):

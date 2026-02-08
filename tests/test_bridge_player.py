@@ -45,3 +45,27 @@ def test_make_auto_bid_deterministic_with_patched_random(monkeypatch):
 
     monkeypatch.setattr("sgbridgebot.BridgePlayer.random.randint", lambda a, b: 0)
     assert player.make_auto_bid(1) == 5
+
+
+def test_remove_card_existing_card_returns_removed_card_and_updates_hand():
+    player = BridgePlayer()
+    card_to_remove = BridgeCard(0)
+    second_card = BridgeCard(1)
+    player.hand = [card_to_remove, second_card]
+
+    removed = player.remove_card(card_to_remove)
+
+    assert removed == card_to_remove
+    assert [card.id for card in player.hand] == [second_card.id]
+
+
+def test_remove_card_missing_card_returns_none_without_crashing():
+    player = BridgePlayer()
+    existing_card = BridgeCard(0)
+    missing_card = BridgeCard(12)
+    player.hand = [existing_card]
+
+    removed = player.remove_card(missing_card)
+
+    assert removed is None
+    assert [card.id for card in player.hand] == [existing_card.id]
