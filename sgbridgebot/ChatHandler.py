@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.error import TimedOut, BadRequest
 from sgbridgebot.StringUtils import StringUtils
 from sgbridgebot.BridgeCard import BridgeCard
@@ -118,7 +118,11 @@ class ChatHandler(object):
     async def bid_winner(self, player, bid, game):
         bid_str = self.str_utils.bid_id_to_str(bid)
         for chat_id in game.get_chat_ids():
-            await self.send_message(chat_id, player.disp_name() + ' wins with bid ' + bid_str + '. Choosing partner...')
+            await self.send_message(
+                chat_id,
+                player.disp_name() + ' wins with bid ' + bid_str + '. Choosing partner...',
+                reply_markup=ReplyKeyboardRemove(),
+            )
 
 
     '''
@@ -154,8 +158,8 @@ class ChatHandler(object):
         gameinfo += ' | Declarer: ' + game.declarer.disp_name()
         gameinfo += ' | Partner: ' + repr(game.partner_card)
         keyboard = [[gameinfo]]
-        l = [player.get_all_suit(suit) for suit in range(4)]
-        num_rows = max( 3, len(max(l, key=len)) )
+        cards_by_suit = [player.get_all_suit(suit) for suit in range(4)]
+        num_rows = max(3, len(max(cards_by_suit, key=len)))
         for i in range(num_rows):
             keyboard.append([])
             for s in range(4):
