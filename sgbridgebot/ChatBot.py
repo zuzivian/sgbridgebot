@@ -118,12 +118,21 @@ class ChatBot(object):
             logger.info('Webhook URL diagnostics: length=%s token_length=%s',
                         len(webhook_url), len(token))
 
-            self.application.run_webhook(
-                listen='0.0.0.0',
-                port=port,
-                url_path=token,
-                webhook_url=webhook_url,
-            )
+            try:
+                self.application.run_webhook(
+                    listen='0.0.0.0',
+                    port=port,
+                    url_path=token,
+                    webhook_url=webhook_url,
+                )
+            except RuntimeError as exc:
+                # python-telegram-bot requires optional webhook extras (e.g. tornado)
+                # to run in webhook mode.
+                raise ValueError(
+                    'Webhook startup failed. Ensure webhook dependencies are installed '
+                    '(pip install "python-telegram-bot[webhooks]>=21,<22"). '
+                    f'Original error: {exc}'
+                ) from exc
 
     def init_regex_handlers(self):
         bids = r'^(PASS|(1|2|3|4|5|6|7)(' + '|'.join([u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660', 'NT']) + r'))$'
