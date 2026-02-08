@@ -1,11 +1,13 @@
+import logging
 import asyncio
 
 from sgbridgebot.BridgeCard import BridgeCard
 from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.game_types import GameState, GameType
 
 
 async def _build_started_game(mock_handler, make_user):
-    game = BridgeGame(mock_handler, type=0)
+    game = BridgeGame(mock_handler, type=GameType.PUBLIC)
     for i in range(4):
         state = await game.add_player(make_user(i + 1, username=f"u{i+1}"), 100 + i)
         assert state is game
@@ -13,7 +15,7 @@ async def _build_started_game(mock_handler, make_user):
 
 
 def test_player_join_leave_lifecycle(mock_handler, make_user):
-    game = BridgeGame(mock_handler, type=0)
+    game = BridgeGame(mock_handler, type=GameType.PUBLIC)
 
     asyncio.run(game.add_player(make_user(1, username="u1"), 101))
     assert game.num_players() == 1
@@ -28,7 +30,7 @@ def test_player_join_leave_lifecycle(mock_handler, make_user):
 def test_transition_from_lobby_to_started_game(mock_handler, make_user):
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
-    assert game.state == 1
+    assert game.state == GameState.AUCTION
     assert game.num_players() == 4
     assert game.turn == 0
     assert any(evt[0] == "starting_game" for evt in mock_handler.events)
@@ -36,7 +38,7 @@ def test_transition_from_lobby_to_started_game(mock_handler, make_user):
 
 
 def test_valid_play_rules(mock_handler, make_user):
-    game = BridgeGame(mock_handler, type=0)
+    game = BridgeGame(mock_handler, type=GameType.PUBLIC)
     game.players = [
         type("P", (), {"id": 1, "hand": [BridgeCard(13), BridgeCard(0)], "get_all_suit": lambda self, s: [c for c in self.hand if c.suit == s]})(),
         type("P", (), {"id": 2, "hand": [], "get_all_suit": lambda self, s: []})(),
@@ -68,7 +70,7 @@ def test_end_game_winner_determination(mock_handler, make_user):
 
     asyncio.run(game.end_game())
 
-    assert game.state == 4
+    assert game.state == GameState.SCORING
     assert game.players == []
     assert mock_handler.winner_payload["result"] == 0
     assert set(mock_handler.winner_payload["winner_ids"]) == {1, 3}
@@ -81,7 +83,7 @@ def test_auction_four_opening_passes_redeal_and_restart(mock_handler, make_user)
     for _ in range(4):
         asyncio.run(game.process_bid(-1))
 
-    assert game.state == 1
+    assert game.state == GameState.AUCTION
     assert game.contract == -1
     assert game.turn == 0
     assert game.declarer == game.players[0]
@@ -107,12 +109,12 @@ def test_auction_transition_after_bid_and_three_passes(mock_handler, make_user):
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
     asyncio.run(game.process_bid(0))
-    assert game.state == 1
+    assert game.state == GameState.AUCTION
 
     for _ in range(3):
         asyncio.run(game.process_bid(-1))
 
-    assert game.state == 2
+    assert game.state == GameState.PARTNER_CALL
     assert game.contract == 0
     assert game.declarer == game.players[0]
     assert any(evt[0] == "bid_winner" for evt in mock_handler.events)
@@ -135,7 +137,7 @@ def test_all_pass_auction_redeals_and_requests_bid_again(mock_handler, make_user
     for _ in range(4):
         asyncio.run(game.process_bid(-1))
 
-    assert game.state == 1
+    assert game.state == GameState.AUCTION
     assert game.contract == -1
     assert game.turn == 0
     assert game.declarer == game.players[0]
@@ -165,7 +167,7 @@ def test_next_turn_from_auction_does_not_duplicate_first_card_prompt_for_bot_dec
 
 def test_partner_selection_maps_called_card_to_partner_player(mock_handler, make_user):
     game = asyncio.run(_build_started_game(mock_handler, make_user))
-    game.state = 2
+    game.state = GameState.PARTNER_CALL
     game.turn = 0
 
     called_card = game.players[2].hand[0]
@@ -182,3 +184,19 @@ def test_partner_selection_rejects_unknown_card_ids(mock_handler, make_user):
     partner = game.player_holding_card(99)
 
     assert partner is None
+
+
+def test_process_bid_logs_warning_for_invalid_bot_bid(mock_handler, caplog):
+    game = BridgeGame(mock_handler, type=0)
+    game.id = "game-123"
+    bot_player = type("BotPlayer", (), {"id": 777, "is_bot": True})()
+    game.players = [bot_player]
+    game.turn = 0
+    game.contract = 10
+
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(game.process_bid(5))
+
+    assert "Invalid bid made by bot; ignoring bid and continuing auction context" in caplog.text
+    assert "game-123" in caplog.text
+    assert "777" in caplog.text
