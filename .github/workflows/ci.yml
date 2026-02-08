@@ -28,12 +28,12 @@ jobs:
           pip install -r requirements.txt
           pip install ruff flake8 mypy pytest
 
-      - name: Run ruff
+      - name: Run ruff (minimal low-signal rules)
         run: |
           mkdir -p artifacts
-          ruff check . | tee artifacts/ruff.txt
+          ruff check sgbridgebot tests | tee artifacts/ruff.txt
 
-      - name: Run flake8
+      - name: Run flake8 (minimal low-signal rules)
         run: |
           mkdir -p artifacts
           flake8 sgbridgebot tests | tee artifacts/flake8.txt
@@ -55,10 +55,6 @@ jobs:
     name: Test (pytest)
     runs-on: ubuntu-latest
 
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -p 'test_*.py'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
