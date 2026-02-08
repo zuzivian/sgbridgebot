@@ -1,0 +1,75 @@
+import asyncio
+
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.BridgeGame import BridgeGame
+
+
+async def _build_started_game(mock_handler, make_user):
+    game = BridgeGame(mock_handler, type=0)
+    for i in range(4):
+        state = await game.add_player(make_user(i + 1, username=f"u{i+1}"), 100 + i)
+        assert state is game
+    return game
+
+
+def test_player_join_leave_lifecycle(mock_handler, make_user):
+    game = BridgeGame(mock_handler, type=0)
+
+    asyncio.run(game.add_player(make_user(1, username="u1"), 101))
+    assert game.num_players() == 1
+
+    duplicate = asyncio.run(game.add_player(make_user(1, username="u1"), 101))
+    assert duplicate == -2
+
+    game.remove_player(make_user(1, username="u1"), 101)
+    assert game.num_players() == 0
+
+
+def test_transition_from_lobby_to_started_game(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    assert game.state == 1
+    assert game.num_players() == 4
+    assert game.turn == 0
+    assert any(evt[0] == "starting_game" for evt in mock_handler.events)
+    assert any(evt[0] == "request_bid" for evt in mock_handler.events)
+
+
+def test_valid_play_rules(mock_handler, make_user):
+    game = BridgeGame(mock_handler, type=0)
+    game.players = [
+        type("P", (), {"id": 1, "hand": [BridgeCard(13), BridgeCard(0)], "get_all_suit": lambda self, s: [c for c in self.hand if c.suit == s]})(),
+        type("P", (), {"id": 2, "hand": [], "get_all_suit": lambda self, s: []})(),
+        type("P", (), {"id": 3, "hand": [], "get_all_suit": lambda self, s: []})(),
+        type("P", (), {"id": 4, "hand": [], "get_all_suit": lambda self, s: []})(),
+    ]
+    game.turn = 0
+    game.contract = 0  # trump is clubs
+    game.trump_broken = 0
+    game.trick = []
+
+    assert game.valid_play(BridgeCard(13)) is True  # lead diamonds allowed
+    assert game.valid_play(BridgeCard(0)) is False  # lead trump before broken
+
+    game.trick = [BridgeCard(13)]  # leading suit diamonds
+    assert game.valid_play(BridgeCard(0)) is False  # must follow suit
+
+    game.players[0].hand = [BridgeCard(0)]
+    assert game.valid_play(BridgeCard(0)) is True  # no leading suit cards left
+
+
+def test_end_game_winner_determination(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    game.contract = 5  # level 2 -> requires 8 tricks
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.declarer.tricks_won = 5
+    game.partner.tricks_won = 3
+
+    asyncio.run(game.end_game())
+
+    assert game.state == 4
+    assert game.players == []
+    assert mock_handler.winner_payload["result"] == 0
+    assert set(mock_handler.winner_payload["winner_ids"]) == {1, 3}
+    assert mock_handler.winner_payload["required_tricks"] == 8
