@@ -96,3 +96,44 @@ def test_partner_selection_matches_holder_of_selected_card(mock_handler):
 
     assert game.player_holding_card(30) is players[2]
     assert game.player_holding_card(0) is None
+    
+def test_auction_four_opening_passes_redeal_and_restart(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    for _ in range(4):
+        asyncio.run(game.process_bid(-1))
+        
+    assert game.state == 1
+    assert game.contract == -1
+    assert game.turn == 0
+    assert game.declarer == game.players[0]
+    assert game.consecutive_passes == 0
+    assert sum(1 for evt in mock_handler.events if evt[0] == "player_passed") == 4
+
+def test_auction_pass_counter_resets_after_valid_bid(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    asyncio.run(game.process_bid(-1))
+    assert game.consecutive_passes == 1
+
+    asyncio.run(game.process_bid(0))
+    assert game.contract == 0
+    assert game.consecutive_passes == 0
+
+    asyncio.run(game.process_bid(-1))
+    assert game.consecutive_passes == 1
+
+
+def test_auction_transition_after_bid_and_three_passes(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    asyncio.run(game.process_bid(0))
+    assert game.state == 1
+
+    for _ in range(3):
+        asyncio.run(game.process_bid(-1))
+
+    assert game.state == 2
+    assert game.contract == 0
+    assert game.declarer == game.players[0]
+    assert any(evt[0] == "bid_winner" for evt in mock_handler.events)
