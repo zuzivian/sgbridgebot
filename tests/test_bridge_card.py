@@ -27,5 +27,5 @@ def test_bridge_card_rejects_non_integer_ids(bad_id):
 
 @pytest.mark.parametrize("bad_id", [-1, 52])
 def test_bridge_card_rejects_out_of_range_ids(bad_id):
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         BridgeCard(bad_id)

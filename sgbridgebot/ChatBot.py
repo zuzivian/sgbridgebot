@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
+
+import logging
+import os
+from urllib.parse import urlparse
 
 from telegram.error import TimedOut
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
-from sgbridgebot.GameManager import GameManager
-from sgbridgebot.CommandUtils import CommandUtils
-from sgbridgebot.ChatHandler import ChatHandler
-from urllib.parse import urlparse
-import os
-import logging
 
+from sgbridgebot.ChatHandler import ChatHandler
+from sgbridgebot.CommandUtils import CommandUtils
+from sgbridgebot.GameManager import GameManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ def _mask_token(token):
     if not token:
         return '<empty>'
     if len(token) <= 8:
-        return '<redacted:{} chars>'.format(len(token))
-    return '{}...{}'.format(token[:4], token[-4:])
+        return f'<redacted:{len(token)} chars>'
+    return f'{token[:4]}...{token[-4:]}'
 
 
 
@@ -50,7 +50,7 @@ def _resolve_webhook_base_url():
     if not host:
         raise ValueError('WEBHOOK_BASE_URL must include a valid public hostname.')
     if host in {'0.0.0.0', '127.0.0.1', 'localhost'}:
-        raise ValueError('WEBHOOK_BASE_URL must be a public hostname, not {}.'.format(host))
+        raise ValueError(f'WEBHOOK_BASE_URL must be a public hostname, not {host}.')
 
     normalized = base_url.rstrip('/')
     logger.info('Resolved webhook base URL: %s', normalized)
@@ -67,24 +67,22 @@ def _resolve_webhook_listen_port():
     try:
         port = int(raw_port)
     except ValueError as exc:
-        raise ValueError('PORT must be a valid integer, got {!r}'.format(raw_port)) from exc
+        raise ValueError(f'PORT must be a valid integer, got {raw_port!r}') from exc
 
     if not (1 <= port <= 65535):
-        raise ValueError('PORT must be between 1 and 65535, got {}.'.format(port))
+        raise ValueError(f'PORT must be between 1 and 65535, got {port}.')
 
     if port < 1024 and hasattr(os, 'geteuid') and os.geteuid() != 0:
         raise ValueError(
-            'PORT={} is privileged but this process runs as non-root (uid={}). '
+            f'PORT={port} is privileged but this process runs as non-root (uid={os.geteuid()}). '
             'Use a non-privileged port (>=1024). On managed platforms like Koyeb/Render, '
-            'do not hardcode PORT (especially 80); let the platform inject it.'.format(
-                port, os.geteuid()
-            )
+            'do not hardcode PORT (especially 80); let the platform inject it.'
         )
 
     return port
 
 
-class ChatBot(object):
+class ChatBot:
 
     def __init__(self, token):
         self.application = ApplicationBuilder().token(token).build()
@@ -135,8 +133,8 @@ class ChatBot(object):
                 ) from exc
 
     def init_regex_handlers(self):
-        bids = r'^(PASS|(1|2|3|4|5|6|7)(' + '|'.join([u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660', 'NT']) + r'))$'
-        cards = r'^(' + '|'.join([u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660']) + r')(2|3|4|5|6|7|8|9|10|J|Q|K|A)$'
+        bids = r'^(PASS|(1|2|3|4|5|6|7)(' + '|'.join(['\U00002663', '\U00002666', '\U00002764', '\U00002660', 'NT']) + r'))$'
+        cards = r'^(' + '|'.join(['\U00002663', '\U00002666', '\U00002764', '\U00002660']) + r')(2|3|4|5|6|7|8|9|10|J|Q|K|A)$'
         self.application.add_handler(MessageHandler(filters.Regex(bids), self.cmd_utils.bidding))
         self.application.add_handler(MessageHandler(filters.Regex(cards), self.cmd_utils.card))
 
