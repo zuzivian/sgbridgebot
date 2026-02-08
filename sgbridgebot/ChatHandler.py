@@ -5,6 +5,10 @@ from telegram.error import TimedOut, BadRequest
 from sgbridgebot.StringUtils import StringUtils
 from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class ChatHandler(object):
 
@@ -36,7 +40,7 @@ class ChatHandler(object):
             try:
                 msg = await self.bot.send_message(chat_id, message, parse_mode=parse_mode, reply_markup=reply_markup)
             except TimedOut:
-                print("Timed out error in bot.send_message, retrying")
+                logger.warning("Timed out error in bot.send_message, retrying")
                 await asyncio.sleep(1.0)
                 continue
             break
@@ -48,7 +52,7 @@ class ChatHandler(object):
             try:
                 msg = await self.bot.edit_message_text(text, chat_id, message_id=message_id, parse_mode=parse_mode, reply_markup=reply_markup)
             except TimedOut:
-                print("Timed out error in bot.edit_message_text, retrying")
+                logger.warning("Timed out error in bot.edit_message_text, retrying")
                 await asyncio.sleep(1.0)
                 continue
             except BadRequest:

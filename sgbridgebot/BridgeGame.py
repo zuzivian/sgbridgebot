@@ -2,10 +2,13 @@ from telegram import User
 from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.BridgeCard import BridgeCard
 import asyncio
+import logging
 import random
 import uuid
 
 BOT_PAUSE = 0.5
+
+logger = logging.getLogger(__name__)
 
 
 class BridgeGame(object):
@@ -267,7 +270,13 @@ class BridgeGame(object):
         elif not self.curr_player().is_bot:
             await self.chat_handler.invalid_bid(self.curr_player())
         else:
-            print('invalid bid made by bot')
+            logger.warning(
+                "Invalid bid made by bot; ignoring bid and continuing auction context: game_id=%s, player_id=%s, contract=%s, attempted_bid=%s",
+                self.id,
+                self.curr_player().id,
+                self.contract,
+                bid,
+            )
         return
 
     async def get_next_bid(self):
