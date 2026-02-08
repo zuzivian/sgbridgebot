@@ -45,3 +45,27 @@ def test_make_auto_bid_deterministic_with_patched_random(monkeypatch):
 
     monkeypatch.setattr("sgbridgebot.BridgePlayer.random.randint", lambda a, b: 0)
     assert player.make_auto_bid(1) == 5
+
+
+def test_is_bot_is_bool_for_bot_player():
+    player = BridgePlayer()
+
+    assert isinstance(player.is_bot, bool)
+    assert player.is_bot is True
+
+
+def test_player_to_bot_sets_bool_and_preserves_behavior(make_user):
+    player = BridgePlayer(user=make_user(42, username="u", first_name="U"), chat_id=123)
+
+    player.player_to_bot()
+
+    assert isinstance(player.is_bot, bool)
+    assert player.is_bot is True
+    assert player.chat_id is None
+
+
+def test_is_bot_is_bool_for_user_player(make_user):
+    player = BridgePlayer(user=make_user(7, username="human", first_name="Human"), chat_id=321)
+
+    assert isinstance(player.is_bot, bool)
+    assert player.is_bot is False
