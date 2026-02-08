@@ -6,6 +6,8 @@ Add a section here for every commit that is made, in the following format: major
 
 Build numbers are included in the alpha stage of development, and will be dropped eventually. Time is in UTC-5.
 
+Canonical package version is defined in `sgbridgebot/__init__.py` as `__version__`, and release entries should match it.
+
 
 ## 0.1.3-alpha: build 180608/2100
 Bug fixes

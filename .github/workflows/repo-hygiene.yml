@@ -1,0 +1,22 @@
+name: Repository hygiene
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  generated-files-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if generated Python artifacts are tracked
+        run: |
+          set -euo pipefail
+          matches="$(git ls-files | grep -E '(^|/)__pycache__/|\.py[co]$|\.egg-info/' || true)"
+          if [ -n "$matches" ]; then
+            echo "Tracked generated files detected:" >&2
+            echo "$matches" >&2
+            exit 1
+          fi
