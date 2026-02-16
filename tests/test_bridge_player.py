@@ -3,8 +3,14 @@ from sgbridgebot.BridgePlayer import BridgePlayer
 
 
 class DummyGame:
-    def __init__(self, trick_history=None):
+    def __init__(self, trick_history=None, trump_suit=3, trump_broken=True):
         self.trick_history = trick_history or []
+        self.trump_suit = trump_suit
+        self.trump_broken = trump_broken
+        self.trick = []
+
+    def get_trump_suit(self):
+        return self.trump_suit
 
 
 def test_bridge_player_defaults_to_bot_with_boolean_flag():
@@ -104,3 +110,39 @@ def test_remove_card_missing_card_keeps_hand_intact_with_multiple_cards():
 
     assert removed is None
     assert [card.id for card in player.hand] == [0, 10, 25]
+
+
+def test_play_auto_card_second_seat_beats_current_winner_when_possible():
+    player = BridgePlayer()
+    game = DummyGame(
+        trump_suit=3,
+        trick_history=[[BridgeCard(36), BridgeCard(37), BridgeCard(38)]],  # hearts Q, K, A
+    )
+    player.hand = [BridgeCard(26), BridgeCard(35)]  # hearts 2, hearts J
+    trick = [BridgeCard(34)]  # hearts 10
+
+    played = player.play_auto_card(trick, game)
+
+    assert played.id == 35
+
+
+def test_play_auto_card_third_seat_uses_current_winner_context_when_trumped():
+    player = BridgePlayer()
+    game = DummyGame(trump_suit=3)
+    player.hand = [BridgeCard(26), BridgeCard(38)]  # hearts 2, hearts A
+    trick = [BridgeCard(34), BridgeCard(39)]  # hearts 10, spade 2 (trump)
+
+    played = player.play_auto_card(trick, game)
+
+    assert played.id == 26
+
+
+def test_play_auto_card_last_seat_branch_plays_winning_card_before_fourth_play():
+    player = BridgePlayer()
+    game = DummyGame(trump_suit=3)
+    player.hand = [BridgeCard(26), BridgeCard(37)]  # hearts 2, hearts K
+    trick = [BridgeCard(34), BridgeCard(35), BridgeCard(36)]  # hearts 10, J, Q
+
+    played = player.play_auto_card(trick, game)
+
+    assert played.id == 37
