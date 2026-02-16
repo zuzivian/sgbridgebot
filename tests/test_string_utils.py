@@ -42,3 +42,25 @@ def test_bid_and_card_conversion_round_trip():
     assert su.card_str_to_id("♣2") == 0
     assert su.card_str_to_id("♠A") == 51
     assert su.card_str_to_id(f"{su.suit_str[2]}10") == 34
+
+
+def test_bid_str_to_id_rejects_malformed_inputs():
+    su = StringUtils()
+
+    for value in ["", "   ", "1", "0♣", "8NT", "1X", "1N"]:
+        try:
+            su.bid_str_to_id(value)
+            assert False, f"Expected ValueError for bid {value!r}"
+        except ValueError:
+            pass
+
+
+def test_card_str_to_id_rejects_malformed_inputs():
+    su = StringUtils()
+
+    for value in ["", "   ", "♣", "X10", "♣1", "♣11", "♣Z"]:
+        try:
+            su.card_str_to_id(value)
+            assert False, f"Expected ValueError for card {value!r}"
+        except ValueError:
+            pass

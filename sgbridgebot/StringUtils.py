@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import unicodedata
+
 
 class StringUtils(object):
 
@@ -41,13 +43,28 @@ class StringUtils(object):
         return message
 
     def bid_str_to_id(self, text):
-        text.encode('UTF8')
-        if text == 'PASS':
+        normalized = unicodedata.normalize('NFKC', str(text).strip())
+        normalized_upper = normalized.upper()
+
+        if normalized_upper == 'PASS':
             return -1
-        for suit in range(5):
-            if suit < 4 and text[1] in self.suit_str[suit]:
-                break
-        return suit + 5*(int(text[0])-1)
+
+        if len(normalized) < 2:
+            raise ValueError('Invalid bid format: expected level and suit token (e.g., 1♣ or 1NT).')
+
+        level_token = normalized[0]
+        if not level_token.isdigit() or not 1 <= int(level_token) <= 7:
+            raise ValueError('Invalid bid level: expected a digit from 1 to 7.')
+
+        suit_token = normalized[1:]
+        if len(suit_token) == 1 and suit_token in self.suit_str:
+            suit = self.suit_str.index(suit_token)
+        elif suit_token.upper() == 'NT':
+            suit = 4
+        else:
+            raise ValueError('Invalid bid suit: expected ♣, ♦, ♥, ♠, or NT.')
+
+        return suit + 5 * (int(level_token) - 1)
 
     def bid_id_to_str(self, id):
         bid = id//5 + 1
@@ -56,19 +73,24 @@ class StringUtils(object):
         return str(bid)+suit
 
     def card_str_to_id(self, text):
-        for suit in range(4):
-            if text[0] in self.suit_str[suit]:
-                break
-        if text[1] == 'J':
-            rank = 11
-        elif text[1] == 'Q':
-            rank = 12
-        elif text[1] == 'K':
-            rank = 13
-        elif text[1] == 'A':
-            rank = 14
-        elif len(text) == 3:
+        normalized = unicodedata.normalize('NFKC', str(text).strip())
+        if len(normalized) < 2:
+            raise ValueError('Invalid card format: expected suit and rank token (e.g., ♣2 or ♠A).')
+
+        suit_token = normalized[0]
+        if suit_token not in self.suit_str:
+            raise ValueError('Invalid card suit: expected ♣, ♦, ♥, or ♠.')
+        suit = self.suit_str.index(suit_token)
+
+        rank_token = normalized[1:].upper()
+        rank_map = {'J': 11, 'Q': 12, 'K': 13, 'A': 14}
+        if rank_token in rank_map:
+            rank = rank_map[rank_token]
+        elif rank_token == '10':
             rank = 10
+        elif len(rank_token) == 1 and rank_token.isdigit() and 2 <= int(rank_token) <= 9:
+            rank = int(rank_token)
         else:
-            rank = int(text[1])
-        return suit*13 + rank-2
+            raise ValueError('Invalid card rank: expected 2-10, J, Q, K, or A.')
+
+        return suit * 13 + rank - 2
