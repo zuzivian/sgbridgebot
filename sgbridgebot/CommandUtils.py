@@ -86,7 +86,10 @@ class CommandUtils:
                 if player.id == user.id:
                     await self.reply_text(
                         update,
-                        'You are in a game lobby. Wait for the game to start, then use /hand in a private chat.',
+                        (
+                            'You are in a game lobby. Wait for the game to start, '
+                            'then use /hand in a private chat.'
+                        ),
                     )
                     return
 
