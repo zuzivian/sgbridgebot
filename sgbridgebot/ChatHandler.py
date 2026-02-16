@@ -2,6 +2,7 @@ import logging
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.error import BadRequest
+from telegram.helpers import escape_markdown
 
 from sgbridgebot.BridgeCard import BridgeCard
 from sgbridgebot.retry_utils import retry_on_timeout
@@ -103,6 +104,14 @@ class ChatHandler:
         players = ", ".join([p.disp_name() for p in game.players])
         await self.send_message(chat_id, "For game with players " + players + ":")
 
+    def _safe_display_name_for_markdown(self, player):
+        if player.username is not None:
+            safe_username = escape_markdown(player.username, version=1)
+            return '@' + safe_username
+
+        safe_first_name = escape_markdown(player.first_name, version=1)
+        return '[' + safe_first_name + '](mention:' + str(player.id) + ')'
+
 
     '''
     BIDDING
@@ -158,10 +167,7 @@ class ChatHandler:
             for y in range(4):
                 keyboard[x].append(repr(BridgeCard((12-x)+y*13)))
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
-        if player.username is not None:
-            disp_name = '@'+player.username
-        else:
-            disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
+        disp_name = self._safe_display_name_for_markdown(player)
         await self.send_message(
             player.chat_id,
             disp_name + ', please select a partner card:',
@@ -198,10 +204,7 @@ class ChatHandler:
                 else:
                     keyboard[-1].append(' ')
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
-        if player.username is not None:
-            disp_name = '@'+player.username
-        else:
-            disp_name = '['+player.first_name+'](mention:'+str(player.id)+')'
+        disp_name = self._safe_display_name_for_markdown(player)
         await self.send_message(
             player.chat_id,
             disp_name + ', please choose a card to play.',
