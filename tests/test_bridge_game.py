@@ -2,7 +2,7 @@ import logging
 import asyncio
 
 from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.BridgeGame import BridgeGame, MAX_REDEAL_ATTEMPTS
 from sgbridgebot.game_types import GameState, GameType
 
 
@@ -200,3 +200,44 @@ def test_process_bid_logs_warning_for_invalid_bot_bid(mock_handler, caplog):
     assert "Invalid bid made by bot; ignoring bid and continuing auction context" in caplog.text
     assert "game-123" in caplog.text
     assert "777" in caplog.text
+
+
+def test_start_game_limits_redeals_for_perpetual_wash(mock_handler, make_user, monkeypatch, caplog):
+    deal_counter = {"count": 0}
+
+    original_deal_hands = BridgeGame.deal_hands
+
+    def counted_deal_hands(self):
+        deal_counter["count"] += 1
+        original_deal_hands(self)
+
+    monkeypatch.setattr(BridgeGame, "deal_hands", counted_deal_hands)
+    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 0)
+
+    with caplog.at_level(logging.WARNING):
+        game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    assert deal_counter["count"] == MAX_REDEAL_ATTEMPTS
+    assert game.state == GameState.AUCTION
+    assert any(evt[0] == "request_bid" for evt in mock_handler.events)
+    assert "Redeal attempt limit exceeded" in caplog.text
+    assert "Accepting latest deal after redeal limit reached" in caplog.text
+
+
+def test_start_game_deals_once_when_no_wash(mock_handler, make_user, monkeypatch):
+    deal_counter = {"count": 0}
+
+    original_deal_hands = BridgeGame.deal_hands
+
+    def counted_deal_hands(self):
+        deal_counter["count"] += 1
+        original_deal_hands(self)
+
+    monkeypatch.setattr(BridgeGame, "deal_hands", counted_deal_hands)
+    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 10)
+
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    assert deal_counter["count"] == 1
+    assert game.state == GameState.AUCTION
+    assert game.turn == 0

@@ -10,6 +10,7 @@ from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.game_types import GameState, GameType
 
 BOT_PAUSE = 0.5
+MAX_REDEAL_ATTEMPTS = 200
 
 logger = logging.getLogger(__name__)
 
@@ -173,12 +174,26 @@ class BridgeGame:
             dirs += 1
         # Deal cards and ensure there is no wash.
         wash = True
+        redeal_attempts = 0
         while wash:
             wash = False
+            redeal_attempts += 1
             self.deal_hands()
             for p in self.players:
                 if p.hand_score(p.hand) < 4:
                     wash = True
+            if wash and redeal_attempts >= MAX_REDEAL_ATTEMPTS:
+                logger.error(
+                    "Redeal attempt limit exceeded: game_id=%s, attempts=%s",
+                    self.id,
+                    redeal_attempts,
+                )
+                logger.warning(
+                    "Accepting latest deal after redeal limit reached; wash condition remains: "
+                    "game_id=%s",
+                    self.id,
+                )
+                wash = False
         await self.show_hands()
         self.turn = 0
         self.contract = -1
