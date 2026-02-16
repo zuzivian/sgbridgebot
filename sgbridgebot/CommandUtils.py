@@ -65,14 +65,32 @@ class CommandUtils:
     async def hand(self, update, context):
         user = update.message.from_user
         chat_id = update.effective_chat.id
+        found_active_player = False
+
         for game in self.manager.active_games:
             for player in game.players:
                 if player.id == user.id:
+                    found_active_player = True
                     if update.effective_chat.type != 'private':
                         await self.chat.ask_private_chat(game)
                         return
                     await self.chat.display_game_players(chat_id, game)
                     await self.chat.display_hand(player, chat_id)
+                    return
+
+        if found_active_player:
+            return
+
+        for game in self.manager.waiting_games:
+            for player in game.players:
+                if player.id == user.id:
+                    await self.reply_text(
+                        update,
+                        'You are in a game lobby. Wait for the game to start, then use /hand in a private chat.',
+                    )
+                    return
+
+        await self.reply_text(update, 'You are not in an active game. Use /join first.')
 
     async def bidding(self, update, context):
         user = update.message.from_user
