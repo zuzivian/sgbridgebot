@@ -81,6 +81,21 @@ def _resolve_webhook_listen_port():
     return port
 
 
+def _resolve_webhook_secret_token():
+    """Return webhook secret token or None when not configured."""
+    raw_secret = os.environ.get('TELEGRAM_WEBHOOK_SECRET')
+    if raw_secret is None:
+        return None
+
+    secret = raw_secret.strip()
+    if not secret:
+        raise ValueError('TELEGRAM_WEBHOOK_SECRET must be non-empty when set.')
+    if raw_secret != secret:
+        raise ValueError('TELEGRAM_WEBHOOK_SECRET must not include leading/trailing whitespace.')
+
+    return secret
+
+
 class ChatBot:
 
     def __init__(self, token):
@@ -107,6 +122,7 @@ class ChatBot:
             token = self.token
             port = _resolve_webhook_listen_port()
             webhook_base_url = _resolve_webhook_base_url()
+            webhook_secret = _resolve_webhook_secret_token()
             webhook_url = webhook_base_url + '/' + token
 
             logger.info('Starting webhook listener on 0.0.0.0:%s', port)
@@ -114,6 +130,7 @@ class ChatBot:
                         webhook_base_url, _mask_token(token))
             logger.info('Webhook URL diagnostics: length=%s token_length=%s',
                         len(webhook_url), len(token))
+            logger.info('Webhook secret configured: %s', bool(webhook_secret))
 
             try:
                 self.application.run_webhook(
@@ -121,6 +138,7 @@ class ChatBot:
                     port=port,
                     url_path=token,
                     webhook_url=webhook_url,
+                    secret_token=webhook_secret,
                 )
             except RuntimeError as exc:
                 # python-telegram-bot requires optional webhook extras (e.g. tornado)

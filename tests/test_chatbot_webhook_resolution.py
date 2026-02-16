@@ -4,7 +4,12 @@ from unittest import mock
 import pytest
 
 from sgbridgebot import main
-from sgbridgebot.ChatBot import _resolve_webhook_base_url, _resolve_webhook_listen_port
+from sgbridgebot.ChatBot import (
+    ChatBot,
+    _resolve_webhook_base_url,
+    _resolve_webhook_listen_port,
+    _resolve_webhook_secret_token,
+)
 
 
 def test_resolve_webhook_base_url_from_env(monkeypatch):
@@ -67,6 +72,67 @@ def test_resolve_webhook_listen_port_rejects_privileged_non_root(monkeypatch):
 
     with pytest.raises(ValueError, match="privileged"):
         _resolve_webhook_listen_port()
+
+
+def test_resolve_webhook_secret_token_unset(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_WEBHOOK_SECRET", raising=False)
+
+    assert _resolve_webhook_secret_token() is None
+
+
+def test_resolve_webhook_secret_token_valid(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "valid-secret")
+
+    assert _resolve_webhook_secret_token() == "valid-secret"
+
+
+@pytest.mark.parametrize("secret", ["", "   ", " secret", "secret "])
+def test_resolve_webhook_secret_token_rejects_malformed(monkeypatch, secret):
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", secret)
+
+    with pytest.raises(ValueError, match="TELEGRAM_WEBHOOK_SECRET"):
+        _resolve_webhook_secret_token()
+
+
+def _build_chatbot_with_mocked_app(monkeypatch):
+    app = mock.Mock()
+    builder = mock.Mock()
+    builder.token.return_value = builder
+    builder.build.return_value = app
+    monkeypatch.setattr("sgbridgebot.ChatBot.ApplicationBuilder", mock.Mock(return_value=builder))
+
+    bot = ChatBot("token-123")
+    return bot, app
+
+
+def test_chatbot_start_webhook_passes_secret_token_when_set(monkeypatch):
+    monkeypatch.setenv("WEBHOOK_BASE_URL", "https://example.com")
+    monkeypatch.setenv("PORT", "8000")
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "secret-123")
+
+    bot, app = _build_chatbot_with_mocked_app(monkeypatch)
+
+    bot.start(0)
+
+    app.run_webhook.assert_called_once_with(
+        listen="0.0.0.0",
+        port=8000,
+        url_path="token-123",
+        webhook_url="https://example.com/token-123",
+        secret_token="secret-123",
+    )
+
+
+def test_chatbot_start_webhook_allows_unset_secret_token(monkeypatch):
+    monkeypatch.setenv("WEBHOOK_BASE_URL", "https://example.com")
+    monkeypatch.setenv("PORT", "8000")
+    monkeypatch.delenv("TELEGRAM_WEBHOOK_SECRET", raising=False)
+
+    bot, app = _build_chatbot_with_mocked_app(monkeypatch)
+
+    bot.start(0)
+
+    assert app.run_webhook.call_args.kwargs["secret_token"] is None
 
 
 def test_main_webhook_mode_starts_webhook_consistently_with_valid_resolution(monkeypatch):

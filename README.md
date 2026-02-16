@@ -104,8 +104,12 @@ Before starting the bot in production, set the following environment variables:
 - `PORT`: Optional webhook listen port. If unset, the bot defaults to `8000`; when running on Koyeb/Render this is typically platform-injected and should not be hardcoded.
 - `WEBHOOK_BASE_URL`: Public HTTPS base URL for webhook mode (for example `https://your-app.herokuapp.com`).
   - Optional on Koyeb if `KOYEB_PUBLIC_DOMAIN` is present; the bot will auto-build `https://<KOYEB_PUBLIC_DOMAIN>`.
+- `TELEGRAM_WEBHOOK_SECRET`: Optional Telegram webhook secret token used to validate inbound webhook requests.
+  - If set, it must be non-empty and must not contain leading/trailing whitespace.
 
 The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_TOKEN>`.
+When `TELEGRAM_WEBHOOK_SECRET` is configured, startup passes it to Telegram via
+`Application.run_webhook(secret_token=...)`.
 
 ### Koyeb notes
 
@@ -113,6 +117,7 @@ The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_
   `Bad webhook: ip address 0.0.0.0 is reserved`.
 - Ensure `BOT_MODE=webhook` for Koyeb Web Services so the process binds the platform-injected `$PORT` and passes TCP health checks.
 - You can either set `WEBHOOK_BASE_URL` to your public app URL, or rely on Koyeb's `KOYEB_PUBLIC_DOMAIN`.
+- Configure `TELEGRAM_WEBHOOK_SECRET` in your platform secrets manager and reuse the same value in your ingress/proxy config so only requests carrying Telegram's `X-Telegram-Bot-Api-Secret-Token` header are forwarded.
 
 
 
