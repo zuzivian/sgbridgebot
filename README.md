@@ -144,3 +144,13 @@ Suggested setup path:
 3. Enable **Require status checks to pass before merging**.
 4. Select the two checks above.
 
+## Local pre-commit quality checks
+
+Run the same quality gate used by CI before passing a commit:
+
+```bash
+./scripts/run_checks.sh
+```
+
+This runs Ruff linting, mypy, and pytest in sequence.
+
