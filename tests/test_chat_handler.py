@@ -56,10 +56,10 @@ class _DummyCard:
 
 
 class _DummyPlayPlayer:
-    def __init__(self):
-        self.username = "u1"
-        self.first_name = "Player"
-        self.id = 1
+    def __init__(self, username="u1", first_name="Player", player_id=1):
+        self.username = username
+        self.first_name = first_name
+        self.id = player_id
         self.chat_id = 1001
         self._cards = {
             0: [_DummyCard("♣A"), _DummyCard("♣K")],
@@ -103,6 +103,52 @@ def test_request_card_builds_keyboard_without_name_error():
     assert calls[0]["chat_id"] == 1001
     assert "please choose a card to play" in calls[0]["message"]
     assert calls[0]["reply_markup"] is not None
+
+
+def test_request_partner_choice_escapes_markdown_in_username_and_keeps_mention_style():
+    handler = ChatHandler(bot=None)
+    calls = []
+
+    async def fake_send_message(chat_id, message, parse_mode=None, reply_markup=None):
+        calls.append({
+            "chat_id": chat_id,
+            "message": message,
+            "parse_mode": parse_mode,
+            "reply_markup": reply_markup,
+        })
+
+    handler.send_message = fake_send_message
+    player = _DummyPlayPlayer(username="_name](")
+
+    asyncio.run(handler.request_partner_choice(player))
+
+    assert len(calls) == 1
+    assert calls[0]["parse_mode"] == "Markdown"
+    assert calls[0]["message"].startswith("@\\_name](")
+    assert "please select a partner card:" in calls[0]["message"]
+
+
+def test_request_card_escapes_first_name_fallback_and_keeps_mention_link():
+    handler = ChatHandler(bot=None)
+    calls = []
+
+    async def fake_send_message(chat_id, message, parse_mode=None, reply_markup=None):
+        calls.append({
+            "chat_id": chat_id,
+            "message": message,
+            "parse_mode": parse_mode,
+            "reply_markup": reply_markup,
+        })
+
+    handler.send_message = fake_send_message
+    player = _DummyPlayPlayer(username=None, first_name="A_[B", player_id=42)
+
+    asyncio.run(handler.request_card(player, _DummyPlayGame()))
+
+    assert len(calls) == 1
+    assert calls[0]["parse_mode"] == "Markdown"
+    assert calls[0]["message"].startswith("[A\\_\\[B](mention:42)")
+    assert "please choose a card to play." in calls[0]["message"]
 
 
 class _TimeoutThenSuccessBot:
