@@ -16,7 +16,15 @@ class StringUtils(object):
             'D': self.suit_str[1],
             'H': self.suit_str[2],
             'S': self.suit_str[3],
+            '♣': self.suit_str[0],
+            '♦': self.suit_str[1],
+            '♥': self.suit_str[2],
+            '❤': self.suit_str[2],
+            '♠': self.suit_str[3],
         }
+
+    def _strip_emoji_variation_selector(self, text):
+        return str(text).replace('\ufe0f', '')
 
     def player_name(self, player):
         return player.username if player.username else player.first_name
@@ -36,15 +44,17 @@ class StringUtils(object):
             self.player_listing(game))
 
     def normalize_suit_token(self, token):
-        normalized = unicodedata.normalize('NFKC', str(token).strip()).upper()
+        normalized = unicodedata.normalize(
+            'NFKC', self._strip_emoji_variation_selector(str(token).strip())
+        ).upper()
         if normalized in self.suit_aliases:
             return self.suit_aliases[normalized]
-        if token in self.suit_str:
-            return token
         return None
 
     def normalize_rank_token(self, token):
-        normalized = unicodedata.normalize('NFKC', str(token).strip()).upper()
+        normalized = unicodedata.normalize(
+            'NFKC', self._strip_emoji_variation_selector(str(token).strip())
+        ).upper()
         if normalized in {'A', 'K', 'Q', 'J', '10'}:
             return normalized
         if len(normalized) == 1 and normalized.isdigit() and 2 <= int(normalized) <= 9:
@@ -71,7 +81,9 @@ class StringUtils(object):
         return message
 
     def bid_str_to_id(self, text):
-        normalized = unicodedata.normalize('NFKC', str(text).strip())
+        normalized = unicodedata.normalize(
+            'NFKC', self._strip_emoji_variation_selector(str(text).strip())
+        )
         normalized_upper = normalized.upper()
 
         if normalized_upper == 'PASS':
@@ -104,7 +116,9 @@ class StringUtils(object):
         return str(bid)+suit
 
     def card_str_to_id(self, text):
-        normalized = unicodedata.normalize('NFKC', str(text).strip())
+        normalized = unicodedata.normalize(
+            'NFKC', self._strip_emoji_variation_selector(str(text).strip())
+        )
         if len(normalized) < 2:
             raise ValueError('Invalid card format: expected suit and rank token (e.g., ♣2 or ♠A).')
 
