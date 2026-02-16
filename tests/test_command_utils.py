@@ -282,6 +282,22 @@ def test_bidding_rejects_when_not_players_turn_or_wrong_state():
     game.process_bid.assert_not_awaited()
 
 
+def test_bidding_replies_when_user_not_in_active_game():
+    manager = DummyManager()
+    chat = DummyChatHandler()
+    utils = CommandUtils(manager, chat)
+    utils.reply_text = mock.AsyncMock()
+    utils.chat.str_utils = SimpleNamespace(bid_str_to_id=lambda _text: 10)
+    manager.find_result = None
+
+    asyncio.run(utils.bidding(DummyUpdate(_make_user(1), text="1NT"), None))
+
+    utils.reply_text.assert_awaited_once_with(
+        mock.ANY,
+        "You are not in an active game. Use /join first.",
+    )
+
+
 def test_bidding_processes_bid_when_valid_turn_and_auction_state():
     manager = DummyManager()
     chat = DummyChatHandler()
@@ -322,6 +338,22 @@ def test_card_partner_call_sets_partner_and_moves_turn():
     assert game.partner_card.id == 12
     assert ("partner_chosen", 5, 12, game.id) in chat.calls
     game.next_turn.assert_awaited_once()
+
+
+def test_card_replies_when_user_not_in_active_game():
+    manager = DummyManager()
+    chat = DummyChatHandler()
+    utils = CommandUtils(manager, chat)
+    utils.reply_text = mock.AsyncMock()
+    utils.chat.str_utils = SimpleNamespace(card_str_to_id=lambda _text: 12)
+    manager.find_result = None
+
+    asyncio.run(utils.card(DummyUpdate(_make_user(5), text="♣A"), None))
+
+    utils.reply_text.assert_awaited_once_with(
+        mock.ANY,
+        "You are not in an active game. Use /join first.",
+    )
 
 
 def test_card_play_rejects_invalid_card_and_requests_new_card():

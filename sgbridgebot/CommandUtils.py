@@ -103,11 +103,13 @@ class CommandUtils:
         except ValueError as exc:
             await self.reply_text(update, f'Invalid bid: {exc}')
             return
-        if isinstance(game, BridgeGame):
-            if game.state != GameState.AUCTION or user.id != game.curr_player().id:
-                await self.reply_text(update, 'You cannot bid at this time!')
-                return
-            await game.process_bid(bid_id)
+        if not isinstance(game, BridgeGame):
+            await self.reply_text(update, 'You are not in an active game. Use /join first.')
+            return
+        if game.state != GameState.AUCTION or user.id != game.curr_player().id:
+            await self.reply_text(update, 'You cannot bid at this time!')
+            return
+        await game.process_bid(bid_id)
 
     async def card(self, update, context):
         user = update.message.from_user
@@ -117,30 +119,32 @@ class CommandUtils:
         except ValueError as exc:
             await self.reply_text(update, f'Invalid card: {exc}')
             return
-        if isinstance(game, BridgeGame):
-            if game.state == GameState.PARTNER_CALL and user.id == game.curr_player().id:
-                game.partner = game.player_holding_card(card_id)
-                game.partner_card = BridgeCard(card_id)
-                await self.chat.partner_chosen(game.curr_player(), card_id, game)
-                await game.next_turn()
-            elif game.state == GameState.PLAY and user.id == game.curr_player().id:
-                card = BridgeCard(card_id)
-                if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
-                    removed_card = game.curr_player().remove_card(card)
-                    if removed_card is None:
-                        await self.reply_text(update, 'Could not play card. Please try again.')
-                        await self.chat.request_card(game.curr_player(), game)
-                        return
-                    game.trick.append(removed_card)
-                    if removed_card.suit == game.get_trump_suit():
-                        game.trump_broken = 1
-                    await self.chat.card_played(game.curr_player(), removed_card, game)
-                    await game.next_turn()
-                else:
-                    await self.reply_text(update, 'Invalid card!')
+        if not isinstance(game, BridgeGame):
+            await self.reply_text(update, 'You are not in an active game. Use /join first.')
+            return
+        if game.state == GameState.PARTNER_CALL and user.id == game.curr_player().id:
+            game.partner = game.player_holding_card(card_id)
+            game.partner_card = BridgeCard(card_id)
+            await self.chat.partner_chosen(game.curr_player(), card_id, game)
+            await game.next_turn()
+        elif game.state == GameState.PLAY and user.id == game.curr_player().id:
+            card = BridgeCard(card_id)
+            if card.id in [c.id for c in game.curr_player().hand] and game.valid_play(card):
+                removed_card = game.curr_player().remove_card(card)
+                if removed_card is None:
+                    await self.reply_text(update, 'Could not play card. Please try again.')
                     await self.chat.request_card(game.curr_player(), game)
+                    return
+                game.trick.append(removed_card)
+                if removed_card.suit == game.get_trump_suit():
+                    game.trump_broken = 1
+                await self.chat.card_played(game.curr_player(), removed_card, game)
+                await game.next_turn()
             else:
-                await self.reply_text(
-                    update,
-                    f'Not you turn to play a card! Current turn: {game.curr_player().disp_name()}',
-                )
+                await self.reply_text(update, 'Invalid card!')
+                await self.chat.request_card(game.curr_player(), game)
+        else:
+            await self.reply_text(
+                update,
+                f'Not you turn to play a card! Current turn: {game.curr_player().disp_name()}',
+            )
