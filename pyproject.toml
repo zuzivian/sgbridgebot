@@ -25,3 +25,7 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 ignore_errors = true
+
+[tool.sgbridgebot.compatibility]
+python = "3.13.x"
+python_telegram_bot = ">=21,<22"

@@ -11,6 +11,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
+  lockfiles:
+    name: Lockfiles up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.in
+            requirements-dev.in
+
+      - name: Install pip-tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-tools
+
+      - name: Verify lockfiles are up to date
+        run: ./scripts/check_lockfiles.sh
+
   checks:
     name: Lint, type-check, and tests (Python 3.13)
     runs-on: ubuntu-latest
@@ -25,7 +52,9 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
         run: |
@@ -49,7 +78,9 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install package dependencies
         run: |

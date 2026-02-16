@@ -16,6 +16,40 @@ Compatibility target:
 + Python compatibility target: **3.13.x** for deployment (`runtime.txt`) and CI
 + `python-telegram-bot`: **>=21,<22**
 
+These compatibility constraints are also mirrored in `pyproject.toml` under
+`[tool.sgbridgebot.compatibility]`.
+
+
+# Reproducible dependency workflow
+
+Top-level dependency inputs are human-edited:
+
+- `requirements.in` (runtime direct dependencies)
+- `requirements-dev.in` (development/test direct dependencies)
+
+Pinned lockfiles are generated with hashes:
+
+- `requirements.txt`
+- `requirements-dev.txt`
+
+Regenerate lockfiles whenever either `.in` file changes:
+
+```bash
+python -m pip install --upgrade pip pip-tools
+pip-compile --no-header --strip-extras --generate-hashes --output-file=requirements.txt requirements.in
+pip-compile --no-header --strip-extras --generate-hashes --output-file=requirements-dev.txt requirements-dev.in
+```
+
+Install using lockfiles for deterministic environments:
+
+```bash
+# Runtime
+pip install -r requirements.txt
+
+# Development/test
+pip install -r requirements-dev.txt
+```
+
 
 # Introduction
 
@@ -153,4 +187,3 @@ Run the same quality gate used by CI before passing a commit:
 ```
 
 This runs Ruff linting, mypy, and pytest in sequence.
-
