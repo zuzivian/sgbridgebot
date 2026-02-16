@@ -151,12 +151,16 @@ class ChatBot:
 
     def init_regex_handlers(self):
         suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660']
-        bids = r'^(PASS|(1|2|3|4|5|6|7)(' + '|'.join([*suits, 'NT']) + r'))$'
-        cards = r'^(' + '|'.join(suits) + r')(2|3|4|5|6|7|8|9|10|J|Q|K|A)$'
+        bid_suits = [*suits, 'NT', 'C', 'D', 'H', 'S', 'c', 'd', 'h', 's', 'nt']
+        card_suits = [*suits, 'C', 'D', 'H', 'S', 'c', 'd', 'h', 's']
+        bids = r'^(PASS|pass|(1|2|3|4|5|6|7)(' + '|'.join(bid_suits) + r'))$'
+        cards = r'^(' + '|'.join(card_suits) + r')(2|3|4|5|6|7|8|9|10|J|Q|K|A|j|q|k|a)$'
         self.application.add_handler(MessageHandler(filters.Regex(bids), self.cmd_utils.bidding))
         self.application.add_handler(MessageHandler(filters.Regex(cards), self.cmd_utils.card))
 
     def init_command_handlers(self):
+        self.application.add_handler(CommandHandler('start', self.cmd_utils.start))
+        self.application.add_handler(CommandHandler('help', self.cmd_utils.help))
         self.application.add_handler(CommandHandler('forcestart', self.cmd_utils.forcestart))
         self.application.add_handler(CommandHandler('join', self.cmd_utils.join))
         self.application.add_handler(CommandHandler('leave', self.cmd_utils.leave))

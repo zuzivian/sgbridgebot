@@ -385,17 +385,32 @@ class BridgeGame:
         return
 
     def valid_play(self, card):
+        is_valid, _, _ = self.valid_play_details(card)
+        return is_valid
+
+    def valid_play_details(self, card):
         trump_suit = self.get_trump_suit()
         # can lead trump?
         if len(self.trick) == 0:
             if card.suit == trump_suit and not self.trump_broken:
-                return False
+                suit_symbols = ['♣', '♦', '♥', '♠']
+                return (
+                    False,
+                    f"Trump ({suit_symbols[trump_suit]}) is not broken yet.",
+                    [repr(c) for c in self.curr_player().hand if c.suit != trump_suit],
+                )
             else:
-                return True
+                return True, None, []
         # can play other suit?
         leading_suit = self.trick[0].suit
         suit_cards_available = len(self.curr_player().get_all_suit(leading_suit)) != 0
         if leading_suit != card.suit and suit_cards_available:
-            return False
+            legal_cards = [repr(c) for c in self.curr_player().get_all_suit(leading_suit)]
+            suit_symbols = ['♣', '♦', '♥', '♠']
+            return (
+                False,
+                f"You must follow suit ({suit_symbols[leading_suit]}).",
+                legal_cards,
+            )
         # if not, everything else if cool
-        return True
+        return True, None, []
