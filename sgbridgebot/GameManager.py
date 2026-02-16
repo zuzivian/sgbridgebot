@@ -27,7 +27,7 @@ class GameManager(object):
             self.chat_handler = handler
 
         def create_game(self, type, num_bots=0):
-            g = BridgeGame(self.chat_handler, type, num_bots)
+            g = BridgeGame(self.chat_handler, type, num_bots, on_game_complete=self.end_game)
             self.waiting_games.append(g)
             return g
 
