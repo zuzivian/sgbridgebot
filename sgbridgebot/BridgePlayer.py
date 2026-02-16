@@ -147,7 +147,7 @@ class BridgePlayer:
 
     def play_auto_card(self, trick, game):
         # TODO: make bots partner aware?
-        # TODO: implement better last in trick strategy
+        # TODO: implement partner-aware trick strategy
 
         # some vars
         trump_suit = game.get_trump_suit()
@@ -155,6 +155,7 @@ class BridgePlayer:
         if len(self.hand) == 0:
             return None
 
+        # Seat assumption: len(trick) == 0 means this player is leading the trick.
         # pick random card if leading
         # possibly top trump card if already broken
         if len(trick) == 0:
@@ -191,7 +192,7 @@ class BridgePlayer:
 
             # check if can trump, if so please trump
             highest_trick_trump = 0
-            for c in game.trick:
+            for c in trick:
                 if c.rank > highest_trick_trump and c.suit == trump_suit:
                     highest_trick_trump = c.rank
             trump_cards = self.get_all_suit(trump_suit)
@@ -214,30 +215,57 @@ class BridgePlayer:
             #if not just take random low card
             return self.hand.pop(0)
 
-        # since you are not leading, play what you can
-        trump_in_trick = False
-        for c in trick:
-            if c.suit == trump_suit:
-                trump_in_trick = True
-                break
-        if self.is_highest_remaining_in_suit(top_suit_card, game) and not trump_in_trick:
+        # Seat assumption: len(trick) in (1, 2) means this player is 2nd/3rd seat.
+        # Seat assumption: len(trick) == 3 means this player is last seat.
+        current_winner = self.get_current_trick_winner_card(trick, trump_suit)
+
+        # Among legal follow-suit cards, find the cards that currently win this trick.
+        winning_cards = [
+            card for card in suit_cards
+            if self.card_wins_over(card, current_winner, leading_suit, trump_suit)
+        ]
+
+        # Last seat should resolve the trick outcome now (before the 4th card is played).
+        if len(trick) == 3 and len(winning_cards) > 0:
+            chosen_card = winning_cards[0]
+            self.hand.remove(chosen_card)
+            return chosen_card
+
+        # In 2nd/3rd seat, cash a likely winner only when it can beat the current trick winner
+        # and appears to be the top remaining card in the suit.
+        if len(winning_cards) > 0 and self.is_highest_remaining_in_suit(top_suit_card, game):
             self.hand.remove(top_suit_card)
             return top_suit_card
-        # play good card if possible
-        elif len(trick) == 4:
-            can_win = 1
-            for card in suit_cards:
-                if card.suit == trump_suit:
-                    can_win = 0
-                if card.suit == leading_suit and card.rank > suit_cards[-1].rank:
-                    can_win = 0
-            if can_win:
-                self.hand.remove(suit_cards[-1])
-                return suit_cards[-1]
 
         # give up, just play lowest card in suit
         self.hand.remove(suit_cards[0])
         return suit_cards[0]
+
+    def get_current_trick_winner_card(self, trick, trump_suit):
+        if len(trick) == 0:
+            return None
+        leading_suit = trick[0].suit
+        winner = trick[0]
+        for card in trick[1:]:
+            if self.card_wins_over(card, winner, leading_suit, trump_suit):
+                winner = card
+        return winner
+
+    def card_wins_over(self, challenger, current_winner, leading_suit, trump_suit):
+        if current_winner is None:
+            return True
+        challenger_is_trump = challenger.suit == trump_suit
+        winner_is_trump = current_winner.suit == trump_suit
+
+        if challenger_is_trump and not winner_is_trump:
+            return True
+        if challenger_is_trump and winner_is_trump:
+            return challenger.rank > current_winner.rank
+        if winner_is_trump:
+            return False
+        if challenger.suit == leading_suit and current_winner.suit == leading_suit:
+            return challenger.rank > current_winner.rank
+        return False
 
 
     def is_highest_remaining_in_suit(self, card, game):
