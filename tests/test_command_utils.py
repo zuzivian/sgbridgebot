@@ -482,3 +482,27 @@ def test_card_partner_call_supports_two_step_suit_then_rank_selection():
     assert game.partner is partner
     assert game.partner_card.id == 38
     game.next_turn.assert_awaited_once()
+
+
+def test_card_partner_call_accepts_hearts_emoji_with_variation_selector():
+    manager = DummyManager()
+    chat = DummyChatHandler()
+    chat.str_utils = __import__("sgbridgebot.StringUtils", fromlist=["StringUtils"]).StringUtils()
+    utils = CommandUtils(manager, chat)
+
+    current_player = SimpleNamespace(id=5, chat_id=999)
+    partner = SimpleNamespace(id=66)
+
+    game = _make_game(chat)
+    game.state = GameState.PARTNER_CALL
+    game.curr_player = lambda: current_player
+    game.player_holding_card = lambda _card_id: partner
+    game.next_turn = mock.AsyncMock()
+    manager.find_result = game
+
+    asyncio.run(utils.card(DummyUpdate(_make_user(5), text="♥️"), None))
+    assert ("request_partner_rank", 5, chat.str_utils.suit_str[2]) in chat.calls
+
+    asyncio.run(utils.card(DummyUpdate(_make_user(5), text="A"), None))
+    assert game.partner_card.id == 38
+    game.next_turn.assert_awaited_once()

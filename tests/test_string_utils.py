@@ -69,3 +69,11 @@ def test_bid_and_card_alias_inputs_are_supported():
     assert su.bid_str_to_id("1s") == 3
     assert su.card_str_to_id("SA") == 51
     assert su.card_str_to_id("d10") == 21
+
+
+def test_bid_and_card_inputs_support_emoji_variation_selector():
+    su = StringUtils()
+
+    assert su.normalize_suit_token("♥️") == su.suit_str[2]
+    assert su.bid_str_to_id("1♥️") == 2
+    assert su.card_str_to_id("♥️A") == 38
