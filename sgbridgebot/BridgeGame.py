@@ -31,11 +31,12 @@ class BridgeGame:
 
 
     # Initial game state is an empty game in the PREGAME state
-    def __init__(self, handler, type, num_bots=0):
+    def __init__(self, handler, type, num_bots=0, on_game_complete=None):
         self.id = uuid.uuid1()
         self.type = GameType(type) # 0 for public, 1 for private
         self.state = GameState.SETUP
         self.chat_handler = handler
+        self.on_game_complete = on_game_complete
         self.players = []
         self.turn = 0 #1=,2,3,4 or 0 for nobody
         self.contract = -1 # winning bid
@@ -212,6 +213,10 @@ class BridgeGame:
             )
         # end of game.. exiting..
         self.players = []
+        if self.on_game_complete is not None:
+            callback_result = self.on_game_complete(self.id)
+            if asyncio.iscoroutine(callback_result):
+                await callback_result
 
     def curr_player(self):
         return self.players[self.turn]

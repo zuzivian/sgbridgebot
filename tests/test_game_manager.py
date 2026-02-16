@@ -109,3 +109,22 @@ def test_update_gamelists_transitions_multiple_full_waiting_games_without_skip(m
     assert full_game_2 not in manager.waiting_games
     assert len(manager.active_games) == 2
     assert len(manager.waiting_games) == 1
+
+
+def test_end_game_callback_removes_game_from_active_immediately(mock_handler, make_user):
+    manager = GameManager(mock_handler)
+    private_chat = type("Chat", (), {"id": 10, "type": "private"})
+
+    for user_id in [1, 2, 3, 4]:
+        asyncio.run(manager.join_game(make_user(user_id, username=f"u{user_id}"), private_chat))
+
+    game = manager.active_games[0]
+    game.contract = 5
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.declarer.tricks_won = 5
+    game.partner.tricks_won = 3
+
+    asyncio.run(game.end_game())
+
+    assert game not in manager.active_games
