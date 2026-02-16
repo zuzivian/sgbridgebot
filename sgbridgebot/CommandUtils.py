@@ -77,7 +77,11 @@ class CommandUtils:
     async def bidding(self, update, context):
         user = update.message.from_user
         game = self.manager.find_game(user, update.effective_chat.id)
-        bid_id = self.chat.str_utils.bid_str_to_id(update.message.text)
+        try:
+            bid_id = self.chat.str_utils.bid_str_to_id(update.message.text)
+        except ValueError as exc:
+            await self.reply_text(update, f'Invalid bid: {exc}')
+            return
         if isinstance(game, BridgeGame):
             if game.state != GameState.AUCTION or user.id != game.curr_player().id:
                 await self.reply_text(update, 'You cannot bid at this time!')
@@ -87,7 +91,11 @@ class CommandUtils:
     async def card(self, update, context):
         user = update.message.from_user
         game = self.manager.find_game(user, update.effective_chat.id)
-        card_id = self.chat.str_utils.card_str_to_id(update.message.text)
+        try:
+            card_id = self.chat.str_utils.card_str_to_id(update.message.text)
+        except ValueError as exc:
+            await self.reply_text(update, f'Invalid card: {exc}')
+            return
         if isinstance(game, BridgeGame):
             if game.state == GameState.PARTNER_CALL and user.id == game.curr_player().id:
                 game.partner = game.player_holding_card(card_id)
