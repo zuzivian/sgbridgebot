@@ -12,6 +12,18 @@ from sgbridgebot.GameManager import GameManager
 logger = logging.getLogger(__name__)
 
 
+def _build_input_regexes():
+    suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660']
+    bid_suits = [*suits, 'NT', 'C', 'D', 'H', 'S', 'c', 'd', 'h', 's', 'nt']
+    card_suits = [*suits, 'C', 'D', 'H', 'S', 'c', 'd', 'h', 's']
+    card_ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', 'j', 'q', 'k', 'a']
+
+    bids = r'^(PASS|pass|(1|2|3|4|5|6|7)(' + '|'.join(bid_suits) + r'))$'
+    cards = r'^(' + '|'.join(card_suits) + r')(' + '|'.join(card_ranks) + r')$'
+    partner_tokens = r'^(' + '|'.join(card_suits + card_ranks) + r')$'
+    return bids, cards, partner_tokens
+
+
 def _mask_token(token):
     """Return a redacted token representation safe for logs."""
     if not token:
@@ -150,13 +162,12 @@ class ChatBot:
                 ) from exc
 
     def init_regex_handlers(self):
-        suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660']
-        bid_suits = [*suits, 'NT', 'C', 'D', 'H', 'S', 'c', 'd', 'h', 's', 'nt']
-        card_suits = [*suits, 'C', 'D', 'H', 'S', 'c', 'd', 'h', 's']
-        bids = r'^(PASS|pass|(1|2|3|4|5|6|7)(' + '|'.join(bid_suits) + r'))$'
-        cards = r'^(' + '|'.join(card_suits) + r')(2|3|4|5|6|7|8|9|10|J|Q|K|A|j|q|k|a)$'
+        bids, cards, partner_tokens = _build_input_regexes()
         self.application.add_handler(MessageHandler(filters.Regex(bids), self.cmd_utils.bidding))
         self.application.add_handler(MessageHandler(filters.Regex(cards), self.cmd_utils.card))
+        self.application.add_handler(
+            MessageHandler(filters.Regex(partner_tokens), self.cmd_utils.card)
+        )
 
     def init_command_handlers(self):
         self.application.add_handler(CommandHandler('start', self.cmd_utils.start))
