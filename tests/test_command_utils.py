@@ -105,6 +105,9 @@ class DummyChatHandler:
     async def partner_chosen(self, player, card_id, game):
         self.calls.append(("partner_chosen", player.id, card_id, game.id))
 
+    async def request_partner_rank(self, player, suit_symbol):
+        self.calls.append(("request_partner_rank", player.id, suit_symbol))
+
     async def card_played(self, player, card, game):
         self.calls.append(("card_played", player.id, card.id, game.id))
 
@@ -440,4 +443,42 @@ def test_card_play_adds_card_marks_trump_broken_and_advances_turn():
     assert game.trick == [played_card]
     assert game.trump_broken == 1
     assert ("card_played", 55, played_card.id, game.id) in chat.calls
+    game.next_turn.assert_awaited_once()
+
+
+def test_start_and_help_commands_return_guidance_text():
+    manager = DummyManager()
+    chat = DummyChatHandler()
+    utils = CommandUtils(manager, chat)
+    utils.reply_text = mock.AsyncMock()
+
+    asyncio.run(utils.start(DummyUpdate(_make_user()), None))
+    asyncio.run(utils.help(DummyUpdate(_make_user()), None))
+
+    assert "Quick start" in utils.reply_text.await_args_list[0].args[1]
+    assert "Commands" in utils.reply_text.await_args_list[1].args[1]
+
+
+def test_card_partner_call_supports_two_step_suit_then_rank_selection():
+    manager = DummyManager()
+    chat = DummyChatHandler()
+    chat.str_utils = __import__("sgbridgebot.StringUtils", fromlist=["StringUtils"]).StringUtils()
+    utils = CommandUtils(manager, chat)
+
+    current_player = SimpleNamespace(id=5, chat_id=999)
+    partner = SimpleNamespace(id=66)
+
+    game = _make_game(chat)
+    game.state = GameState.PARTNER_CALL
+    game.curr_player = lambda: current_player
+    game.player_holding_card = lambda _card_id: partner
+    game.next_turn = mock.AsyncMock()
+    manager.find_result = game
+
+    asyncio.run(utils.card(DummyUpdate(_make_user(5), text="H"), None))
+    assert ("request_partner_rank", 5, chat.str_utils.suit_str[2]) in chat.calls
+
+    asyncio.run(utils.card(DummyUpdate(_make_user(5), text="A"), None))
+    assert game.partner is partner
+    assert game.partner_card.id == 38
     game.next_turn.assert_awaited_once()

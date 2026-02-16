@@ -60,3 +60,12 @@ def test_card_str_to_id_rejects_malformed_inputs():
     for value in ["", "   ", "♣", "X10", "♣1", "♣11", "♣Z"]:
         with pytest.raises(ValueError):
             su.card_str_to_id(value)
+
+
+def test_bid_and_card_alias_inputs_are_supported():
+    su = StringUtils()
+
+    assert su.bid_str_to_id("1C") == 0
+    assert su.bid_str_to_id("1s") == 3
+    assert su.card_str_to_id("SA") == 51
+    assert su.card_str_to_id("d10") == 21
