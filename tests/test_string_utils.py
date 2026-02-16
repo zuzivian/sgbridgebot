@@ -1,3 +1,5 @@
+import pytest
+
 from sgbridgebot.StringUtils import StringUtils
 
 
@@ -48,19 +50,13 @@ def test_bid_str_to_id_rejects_malformed_inputs():
     su = StringUtils()
 
     for value in ["", "   ", "1", "0♣", "8NT", "1X", "1N"]:
-        try:
+        with pytest.raises(ValueError):
             su.bid_str_to_id(value)
-            assert False, f"Expected ValueError for bid {value!r}"
-        except ValueError:
-            pass
 
 
 def test_card_str_to_id_rejects_malformed_inputs():
     su = StringUtils()
 
     for value in ["", "   ", "♣", "X10", "♣1", "♣11", "♣Z"]:
-        try:
+        with pytest.raises(ValueError):
             su.card_str_to_id(value)
-            assert False, f"Expected ValueError for card {value!r}"
-        except ValueError:
-            pass
