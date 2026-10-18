@@ -160,6 +160,9 @@ When `TELEGRAM_WEBHOOK_SECRET` is configured, startup passes it to Telegram via
   `Bad webhook: ip address 0.0.0.0 is reserved`.
 - Ensure `BOT_MODE=webhook` for Koyeb Web Services so the process binds the platform-injected `$PORT` and passes TCP health checks.
 - You can either set `WEBHOOK_BASE_URL` to your public app URL, or rely on Koyeb's `KOYEB_PUBLIC_DOMAIN`.
+- Production serves the bot from a natwong.dev subdomain (e.g. `WEBHOOK_BASE_URL=https://bridge.natwong.dev`)
+  through a CNAME to Koyeb. The bot itself stays on Koyeb, not Vercel, because games and turn timers live in
+  process memory. Setup: [docs/deploy-koyeb.md](docs/deploy-koyeb.md#6-serve-the-bot-from-a-natwongdev-subdomain).
 - Configure `TELEGRAM_WEBHOOK_SECRET` in your platform secrets manager and reuse the same value in your ingress/proxy config so only requests carrying Telegram's `X-Telegram-Bot-Api-Secret-Token` header are forwarded.
 
 
