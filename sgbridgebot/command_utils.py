@@ -1,7 +1,7 @@
 import logging
 
-from sgbridgebot.ChatHandler import HTML
-from sgbridgebot.errors import GameError, InvalidPlayError, NotInGameError
+from sgbridgebot.chat_handler import HTML
+from sgbridgebot.errors import GameError, InvalidBidError, InvalidPlayError, NotInGameError
 from sgbridgebot.game_types import GameState
 from sgbridgebot.retry_utils import retry_on_timeout
 
@@ -58,11 +58,15 @@ class CommandUtils:
                 "• /join — join a game lobby\n"
                 "• /leave — leave your current game (a bot takes your seat)\n"
                 "• /hand — show your hand (private chat only)\n"
-                "• /forcestart — fill missing seats with bots\n\n"
+                "• /forcestart — fill missing seats with bots\n"
+                "• /stats — your record · /leaderboard — best players here\n\n"
                 "Tap the buttons to play. You can also type:\n"
                 "• Bid: PASS, 1NT, 1♣, 1C\n"
                 "• Card: ♣2, ♠A, C10, SA\n"
-                "• Partner call: suit first (♣/♦/♥/♠ or C/D/H/S), then rank\n\n"
+                "• Partner call: suit first (♣/♦/♥/♠ or C/D/H/S), then rank\n"
+                "• WASH — redeal, on your first bid with 4 points or fewer\n\n"
+                "Points: A=4, K=3, Q=2, J=1, plus 1 per card beyond four in a suit.\n"
+                "When a hand ends, tap 🔁 Deal again to keep playing at the same table.\n"
                 "If you take too long, a move is made for you."
             ),
         )
@@ -124,6 +128,23 @@ class CommandUtils:
 
         await self.reply_text(update, NOT_IN_GAME)
 
+    async def stats(self, update, context):
+        store = self.manager.stats
+        record = store.player_stats(update.message.from_user.id) if store else None
+        if record is None:
+            await self.reply_text(update, 'No finished hands yet. Use /join to play one!')
+            return
+        await self.reply_text(update, self.chat.str_utils.player_stats(record))
+
+    async def leaderboard(self, update, context):
+        store = self.manager.stats
+        chat = update.effective_chat
+        in_group = chat.type != 'private'
+        rows = store.leaderboard(chat.id if in_group else None) if store else []
+        await self.reply_text(
+            update, self.chat.str_utils.leaderboard(rows, 'this group' if in_group else 'everyone')
+        )
+
     async def _find_text_game(self, update):
         '''
         Finds the sender's game for a typed bid or card. In group chats,
@@ -158,6 +179,21 @@ class CommandUtils:
                 await game.make_bid(player, bid_id)
             except GameError as exc:
                 await self.reply_text(update, str(exc))
+
+    async def wash(self, update, context):
+        game = await self._find_text_game(update)
+        if game is None:
+            return
+        async with game.lock:
+            player = game.get_player(update.message.from_user.id)
+            if player is None or not game.can_call_wash(player):
+                await self.reply_text(
+                    update,
+                    'You can only call a wash on your first bid, with 4 points or fewer.',
+                )
+                return
+            await self.chat.clear_prompt(game)
+            await game.call_wash(player)
 
     def _resolve_partner_card_input(self, game, text):
         '''
@@ -250,6 +286,10 @@ class CommandUtils:
         action, short_id, seq = parts[0], parts[1], parts[2]
         args = parts[3:]
 
+        if action == 'r':
+            await self._deal_again(query, short_id)
+            return
+
         game = self.manager.find_game_by_short_id(short_id)
         if game is None or game.state == GameState.SCORING:
             await query.answer('This game has ended.')
@@ -280,6 +320,11 @@ class CommandUtils:
             game.validate_bid(bid)
             await self._close_query(query, game)
             await game.make_bid(player, bid)
+        elif action == 'w':
+            if not game.can_call_wash(player):
+                raise InvalidBidError('You cannot call a wash now.')
+            await self._close_query(query, game)
+            await game.call_wash(player)
         elif action in ('ps', 'pb', 'pc'):
             if game.state != GameState.PARTNER_CALL:
                 raise InvalidPlayError('You cannot call a partner right now.')
@@ -318,6 +363,14 @@ class CommandUtils:
             await game.play_card(player, card_id)
         else:
             await query.answer()
+
+    async def _deal_again(self, query, short_id):
+        try:
+            await self.manager.rematch(query.from_user, short_id)
+        except GameError as exc:
+            await query.answer(str(exc)[:200], show_alert=True)
+            return
+        await query.answer('You are back at the table.')
 
     def _query_message_ids(self, query):
         message = getattr(query, 'message', None)

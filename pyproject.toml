@@ -1,3 +1,29 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sgbridgebot"
+dynamic = ["version"]
+description = "A Telegram bot that allows users to play floating bridge"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Nathaniel Wong", email = "rubikcode@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = ["python-telegram-bot[webhooks]>=21,<22"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.urls]
+Homepage = "https://github.com/zuzivian/sgbridgebot"
+
+[tool.setuptools.packages.find]
+include = ["sgbridgebot", "sgbridgebot.*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "sgbridgebot.__version__" }
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
@@ -15,7 +41,7 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.13"
-files = ["sgbridgebot"]
+files = ["sgbridgebot", "tools"]
 ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true

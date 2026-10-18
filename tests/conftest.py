@@ -58,9 +58,6 @@ class MockChatHandler:
     async def player_bid(self, bid, player, game):
         self.events.append(("player_bid", bid, player.id, game.id))
 
-    async def invalid_bid(self, player, game):
-        self.events.append(("invalid_bid", player.id))
-
     async def bid_winner(self, player, contract, game):
         self.events.append(("bid_winner", player.id, contract, game.id))
 
@@ -73,6 +70,12 @@ class MockChatHandler:
     async def player_timed_out(self, player, game, handed_over):
         self.events.append(("player_timed_out", player.id, handed_over))
 
+    async def wash_called(self, player, points, game):
+        self.events.append(("wash_called", player.id, points))
+
+    async def partner_revealed(self, player, game):
+        self.events.append(("partner_revealed", player.id))
+
     async def partner_chosen(self, player, card_id, game):
         self.partner_payload = {
             "player_id": player.id,
@@ -80,6 +83,12 @@ class MockChatHandler:
             "game_id": game.id,
         }
         self.events.append(("partner_chosen", player.id, card_id, game.id))
+
+
+@pytest.fixture(autouse=True)
+def stats_in_memory(monkeypatch):
+    # A ChatBot built in a test must not leave a database file behind.
+    monkeypatch.setenv("DATABASE_PATH", ":memory:")
 
 
 @pytest.fixture

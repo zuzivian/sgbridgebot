@@ -6,10 +6,10 @@ from types import SimpleNamespace
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, User
 from telegram.error import Forbidden, TimedOut
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import BridgeGame
-from sgbridgebot.BridgePlayer import BridgePlayer
-from sgbridgebot.ChatHandler import ChatHandler
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_game import BridgeGame
+from sgbridgebot.bridge_player import BridgePlayer
+from sgbridgebot.chat_handler import ChatHandler
 from sgbridgebot.game_types import GameState, GameType
 
 
@@ -24,6 +24,10 @@ class _DummyPlayer:
 class _DummyGame:
     def __init__(self, chat_ids):
         self._chat_ids = chat_ids
+        self.auction_log = [("u2", -1), ("u1", 0)]
+
+    def tricks_required(self):
+        return 7
 
     def get_chat_ids(self):
         return self._chat_ids
@@ -51,6 +55,7 @@ def test_bid_winner_clears_bidding_keyboard_before_partner_selection():
     assert len(calls) == 2
     assert all(isinstance(call["reply_markup"], ReplyKeyboardRemove) for call in calls)
     assert all("wins with bid" in call["message"] for call in calls)
+    assert all("Auction: u2: pass · u1: 1♣" in call["message"] for call in calls)
 
 
 def _started_game(make_user, game_type=GameType.MATCHMAKING):
@@ -212,3 +217,39 @@ def test_edit_message_text_retries_and_logs_timeout_warning(caplog):
 
     assert response["message_id"] == 42
     assert "Timed out error in bot.edit_message_text, retrying" in caplog.text
+
+
+def test_partner_reveal_announces_sides_and_tally(make_user):
+    handler, game, calls = _started_game(make_user)
+    game.partner = game.players[2]
+    game.partner_revealed = True
+    game.players[0].tricks_won = 3
+    game.players[2].tricks_won = 2
+    game.players[1].tricks_won = 1
+
+    asyncio.run(handler.partner_revealed(game.players[2], game))
+
+    text = calls[0]["message"]
+    assert "Partner revealed! u3 holds ♠A and plays with _name](." in text
+    assert "_name]( + u3: 5/7 tricks" in text
+    assert ": 1/7 to defeat" in text
+
+
+def test_tally_hides_sides_until_partner_is_revealed(make_user):
+    handler, game, _ = _started_game(make_user)
+    game.partner = game.players[2]
+
+    tally = handler.tricks_tally(game)
+
+    assert "u3" in tally and "+" not in tally
+    assert "need 7; the others need 7 to defeat" in tally
+
+
+def test_declarer_calling_own_card_is_announced_as_playing_alone(make_user):
+    handler, game, calls = _started_game(make_user)
+    game.partner = game.declarer
+    game.partner_revealed = True
+
+    asyncio.run(handler.partner_revealed(game.declarer, game))
+
+    assert "playing alone" in calls[0]["message"]

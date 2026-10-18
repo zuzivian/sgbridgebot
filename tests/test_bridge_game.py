@@ -3,9 +3,9 @@ import asyncio
 
 import pytest
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import BridgeGame, MAX_IDLE_STRIKES, MAX_REDEAL_ATTEMPTS
-from sgbridgebot.errors import AlreadyInGameError, InvalidPlayError
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_game import BridgeGame, MAX_IDLE_STRIKES, WASH_MAX_POINTS
+from sgbridgebot.errors import AlreadyInGameError, InvalidBidError, InvalidPlayError
 from sgbridgebot.game_types import GameState, GameType
 
 
@@ -131,7 +131,7 @@ def test_all_pass_auction_redeals_and_requests_bid_again(mock_handler, make_user
         values[:] = values[shift:] + values[:shift]
         shuffle_calls["count"] += 1
 
-    monkeypatch.setattr("sgbridgebot.BridgeGame.random.shuffle", deterministic_shuffle)
+    monkeypatch.setattr("sgbridgebot.bridge_game.random.shuffle", deterministic_shuffle)
 
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
@@ -205,9 +205,9 @@ def test_process_bid_logs_warning_for_invalid_bot_bid(mock_handler, caplog):
     assert "777" in caplog.text
 
 
-def test_start_game_limits_redeals_for_perpetual_wash(mock_handler, make_user, monkeypatch, caplog):
+def test_start_game_never_redeals_on_its_own(mock_handler, make_user, monkeypatch):
+    # Washing is the player's choice now, so even hopeless hands are dealt once.
     deal_counter = {"count": 0}
-
     original_deal_hands = BridgeGame.deal_hands
 
     def counted_deal_hands(self):
@@ -215,16 +215,92 @@ def test_start_game_limits_redeals_for_perpetual_wash(mock_handler, make_user, m
         original_deal_hands(self)
 
     monkeypatch.setattr(BridgeGame, "deal_hands", counted_deal_hands)
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 0)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 0)
 
-    with caplog.at_level(logging.WARNING):
-        game = asyncio.run(_build_started_game(mock_handler, make_user))
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
 
-    assert deal_counter["count"] == MAX_REDEAL_ATTEMPTS
+    assert deal_counter["count"] == 1
     assert game.state == GameState.AUCTION
     assert any(evt[0] == "request_bid" for evt in mock_handler.events)
-    assert "Redeal attempt limit exceeded" in caplog.text
-    assert "Accepting latest deal after redeal limit reached" in caplog.text
+
+
+def test_weak_hand_may_call_wash_on_first_turn(mock_handler, make_user, monkeypatch):
+    monkeypatch.setattr(
+        "sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: WASH_MAX_POINTS
+    )
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    old_hands = [[c.id for c in p.hand] for p in game.players]
+    seq = game.action_seq
+
+    assert game.can_call_wash(game.players[0])
+    asyncio.run(game.call_wash(game.players[0]))
+
+    assert ("wash_called", 1, WASH_MAX_POINTS) in mock_handler.events
+    assert game.action_seq > seq
+    assert game.turn == 0 and game.contract == -1
+    assert [[c.id for c in p.hand] for p in game.players] != old_hands
+
+
+def test_wash_refused_after_acting_or_with_a_good_hand(mock_handler, make_user, monkeypatch):
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 2)
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    asyncio.run(game.make_bid(game.players[0], -1))
+    asyncio.run(game.make_bid(game.players[1], -1))
+    asyncio.run(game.make_bid(game.players[2], -1))
+    asyncio.run(game.make_bid(game.players[3], 0))
+    # Back to North, who already passed this deal.
+    assert game.curr_player() is game.players[0]
+    with pytest.raises(InvalidBidError):
+        asyncio.run(game.call_wash(game.players[0]))
+
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 5)
+    with pytest.raises(InvalidBidError):
+        asyncio.run(game.call_wash(game.players[1]))
+
+
+def test_bot_with_weak_hand_calls_wash(mock_handler, make_user, monkeypatch):
+    async def scenario():
+        game = BridgeGame(mock_handler, GameType.MATCHMAKING, bot_pause=0)
+        for _ in range(3):
+            await game.add_bot()
+        def score(self, hand):
+            # Bots hold weak hands until the first wash; every hand after that is strong.
+            washed = any(evt[0] == "wash_called" for evt in mock_handler.events)
+            return 0 if self.is_bot and not washed else 20
+
+        monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", score)
+        await game.add_player(make_user(9, username="u9"), 109)
+        return game
+
+    asyncio.run(scenario())
+    assert any(evt[0] == "wash_called" for evt in mock_handler.events)
+
+
+def test_auction_log_records_bids_and_passes(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+
+    asyncio.run(game.process_bid(-1))
+    asyncio.run(game.process_bid(4))
+
+    assert game.auction_log == [("u1", -1), ("u2", 4)]
+
+
+def test_end_game_records_match_score(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    game.contract = 0
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.declarer.tricks_won = 2
+    game.partner.tricks_won = 2
+    game.tricks_played = 13
+
+    asyncio.run(game.end_game())
+
+    assert game.result == (1, 4, 7)
+    assert game.hands_played == 1
+    assert game.match_scores == {1: 0, 2: 1, 3: 0, 4: 1}
+    assert len(game.final_players) == 4
 
 
 def test_start_game_deals_once_when_no_wash(mock_handler, make_user, monkeypatch):
@@ -237,7 +313,7 @@ def test_start_game_deals_once_when_no_wash(mock_handler, make_user, monkeypatch
         original_deal_hands(self)
 
     monkeypatch.setattr(BridgeGame, "deal_hands", counted_deal_hands)
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 10)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 10)
 
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
@@ -349,3 +425,64 @@ def test_stale_idle_timer_does_nothing_after_player_acts(mock_handler, make_user
     game = asyncio.run(scenario())
     assert not [evt for evt in mock_handler.events if evt[0] == "player_timed_out"]
     assert game.contract == 0
+
+
+def _seated_game(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.partner_card = game.players[2].hand[0]
+    return game
+
+
+def test_known_teammate_before_partner_is_revealed(mock_handler, make_user):
+    game = _seated_game(mock_handler, make_user)
+    north, east, south, west = game.players
+
+    # The partner holds the card, so they know every side.
+    assert game.known_teammate(south, north) is True
+    assert game.known_teammate(south, east) is False
+    # Everyone knows who the declarer is.
+    assert game.known_teammate(east, north) is False
+    # The declarer and the defenders cannot tell yet.
+    assert game.known_teammate(north, south) is None
+    assert game.known_teammate(east, west) is None
+
+
+def test_known_teammate_after_partner_card_is_played(mock_handler, make_user):
+    game = _seated_game(mock_handler, make_user)
+    north, east, south, west = game.players
+    game.state = GameState.PLAY
+    game.trick_start = 2
+    game.turn = 2
+    card = game.partner_card
+    south.remove_card(card)
+
+    asyncio.run(game._commit_card(south, card))
+
+    assert game.partner_revealed is True
+    assert game.known_teammate(north, south) is True
+    assert game.known_teammate(east, west) is True
+    assert game.known_teammate(west, south) is False
+
+
+def test_declarer_who_calls_own_card_knows_everyone_else_is_against_them(mock_handler, make_user):
+    game = _seated_game(mock_handler, make_user)
+    north, east, _, _ = game.players
+    game.partner = north
+
+    assert game.known_teammate(north, east) is False
+
+
+def test_bot_taking_over_a_seat_that_already_passed_cannot_wash(mock_handler, make_user, monkeypatch):
+    async def scenario():
+        game = await _build_started_game(mock_handler, make_user)
+        await game.make_bid(game.players[0], -1)
+        await game.make_bid(game.players[1], 0)
+        monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 0)
+        game.players[0].player_to_bot()
+        game.turn = 0
+        return game, game.can_call_wash(game.players[0])
+
+    game, can_wash = asyncio.run(scenario())
+    assert can_wash is False

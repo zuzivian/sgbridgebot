@@ -1,6 +1,6 @@
 import pytest
 
-from sgbridgebot.StringUtils import StringUtils
+from sgbridgebot.string_utils import StringUtils
 
 
 class FakePlayer:
@@ -77,3 +77,17 @@ def test_bid_and_card_inputs_support_emoji_variation_selector():
     assert su.normalize_suit_token("♥️") == su.suit_str[2]
     assert su.bid_str_to_id("1♥️") == 2
     assert su.card_str_to_id("♥️A") == 38
+
+
+def test_cards_in_hand_spells_out_suit_names():
+    from sgbridgebot.bridge_card import BridgeCard
+    from sgbridgebot.bridge_player import BridgePlayer
+
+    player = BridgePlayer()
+    player.hand = [BridgeCard(0), BridgeCard(12), BridgeCard(51)]
+
+    text = StringUtils().cards_in_hand(player)
+
+    assert "♣ Clubs (C): 2,  A" in text
+    assert "♦ Diamonds (D): —" in text
+    assert "♠ Spades (S): A" in text

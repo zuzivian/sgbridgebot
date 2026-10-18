@@ -9,15 +9,17 @@ from telegram import (
 )
 from telegram.error import BadRequest, Forbidden
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import MAX_IDLE_STRIKES
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_game import MAX_IDLE_STRIKES, WASH_MAX_POINTS
 from sgbridgebot.game_types import GameType
 from sgbridgebot.retry_utils import retry_on_timeout
-from sgbridgebot.StringUtils import StringUtils
+from sgbridgebot.string_utils import StringUtils
 
 logger = logging.getLogger(__name__)
 
 HTML = 'HTML'
+# How many recent calls the bid prompt shows.
+AUCTION_HISTORY_SHOWN = 8
 RANKS_HIGH_TO_LOW = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2']
 
 
@@ -172,8 +174,26 @@ class ChatHandler:
     BIDDING
     '''
 
-    def bid_markup(self, game):
-        rows = [[InlineKeyboardButton('PASS', callback_data=callback_data('b', game, -1))]]
+    def auction_text(self, game, limit=None):
+        '''
+        The auction so far, e.g. "alice: 1♠ · bob: pass".
+        '''
+        calls = game.auction_log if limit is None else game.auction_log[-limit:]
+        text = ' · '.join(
+            f'{name}: {"pass" if bid == -1 else self.str_utils.bid_id_to_str(bid)}'
+            for name, bid in calls
+        )
+        if limit is not None and len(game.auction_log) > limit:
+            text = '… ' + text
+        return text
+
+    def bid_markup(self, game, player=None):
+        first_row = [InlineKeyboardButton('PASS', callback_data=callback_data('b', game, -1))]
+        if player is not None and game.can_call_wash(player):
+            first_row.append(
+                InlineKeyboardButton('🔄 Wash', callback_data=callback_data('w', game))
+            )
+        rows = [first_row]
         for level in range(7):
             row = []
             for suit in range(5):
@@ -191,12 +211,25 @@ class ChatHandler:
         contract = (
             self.str_utils.bid_id_to_str(game.contract) if game.contract >= 0 else 'none yet'
         )
-        text = (
-            f'{self.mention(player)}, your bid.\n'
-            f'🎯 Highest bid: {esc(contract)}\n'
-            'Tap a bid, or type one (1NT, 1C, PASS).'
-        )
-        await self._send_prompt(game, player.chat_id, text, self.bid_markup(game))
+        text = f'{self.mention(player)}, your bid.\n🎯 Highest bid: {esc(contract)}\n'
+        if game.auction_log:
+            text += f'📜 Auction: {esc(self.auction_text(game, AUCTION_HISTORY_SHOWN))}\n'
+        if game.can_call_wash(player):
+            points = player.hand_score(player.hand)
+            text += (
+                f'🔄 Your hand is worth {points} point(s), so you may call a wash '
+                'to have the cards redealt.\n'
+            )
+        text += 'Tap a bid, or type one (1NT, 1C, PASS).'
+        await self._send_prompt(game, player.chat_id, text, self.bid_markup(game, player))
+
+    async def wash_called(self, player, points, game):
+        for chat_id in game.get_chat_ids():
+            await self.send_message(
+                chat_id,
+                f'🔄 {player.disp_name()} called a wash with {points} point(s) '
+                f'(allowed at {WASH_MAX_POINTS} or fewer). Redealing...',
+            )
 
     async def player_passed(self, player, game):
         for chat_id in game.get_chat_ids():
@@ -208,18 +241,15 @@ class ChatHandler:
                 chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid)
             )
 
-    async def invalid_bid(self, player, game):
-        await self.send_message(player.chat_id, 'Invalid bid!')
-        await self.request_bid(player, game)
-
     async def bid_winner(self, player, bid, game):
         bid_str = self.str_utils.bid_id_to_str(bid)
+        message = (
+            player.disp_name() + ' wins with bid ' + bid_str
+            + f' and needs {game.tricks_required()} tricks with their partner.\n'
+            + '📜 Auction: ' + self.auction_text(game) + '\n\nChoosing partner...'
+        )
         for chat_id in game.get_chat_ids():
-            await self.send_message(
-                chat_id,
-                player.disp_name() + ' wins with bid ' + bid_str + '. Choosing partner...',
-                reply_markup=ReplyKeyboardRemove(),
-            )
+            await self.send_message(chat_id, message, reply_markup=ReplyKeyboardRemove())
 
     '''
     PARTNER CALL
@@ -282,15 +312,57 @@ class ChatHandler:
                 player.disp_name() + ' calls ' + repr(card) + ' as the partner card.',
             )
 
+    async def partner_revealed(self, player, game):
+        if player is game.declarer:
+            message = (
+                f'🤝 {player.disp_name()} called their own card {game.partner_card!r}: '
+                'they are playing alone, one against three!'
+            )
+        else:
+            message = (
+                f'🤝 Partner revealed! {player.disp_name()} holds {game.partner_card!r} '
+                f'and plays with {game.declarer.disp_name()}.'
+            )
+        message += '\n' + self.tricks_tally(game)
+        for chat_id in game.get_chat_ids():
+            await self.send_message(chat_id, message)
+
     '''
     CARD PLAY
     '''
+
+    def tricks_tally(self, game):
+        '''
+        Trick count against each side's target. Who is on which side is only
+        shown once the partner card has been played.
+        '''
+        required = game.tricks_required()
+        to_defeat = 14 - required
+        if game.partner_revealed:
+            declarers = ' + '.join(
+                p.disp_name() for p in game.players if game.is_declarer_side(p)
+            )
+            defenders = ' + '.join(
+                p.disp_name() for p in game.players if not game.is_declarer_side(p)
+            )
+            return (
+                f'📊 {declarers}: {game.declarer_side_tricks()}/{required} tricks · '
+                f'{defenders}: {game.defender_side_tricks()}/{to_defeat} to defeat'
+            )
+        per_player = ', '.join(f'{p.disp_name()}: {p.tricks_won}' for p in game.players)
+        return (
+            f'📊 Tricks: {per_player}\n'
+            f'{game.declarer.disp_name()} and partner need {required}; '
+            f'the others need {to_defeat} to defeat the contract.'
+        )
 
     def _table_status(self, game):
         lines = [
             '🎯 Contract: ' + esc(self.str_utils.bid_id_to_str(game.contract))
             + ' by ' + esc(game.declarer.disp_name()),
-            '🤝 Partner card: ' + esc(repr(game.partner_card)),
+            '🤝 Partner card: ' + esc(repr(game.partner_card))
+            + (' (revealed)' if game.partner_revealed else ''),
+            esc(self.tricks_tally(game)),
         ]
         if game.trick:
             played = ', '.join(
@@ -399,9 +471,9 @@ class ChatHandler:
 
     async def announce_trick(self, player, card, game):
         message = (
-            '🏆 ' + player.disp_name() + ' won the trick with ' + repr(card) + '.\n\nTricks won:\n'
+            '🏆 ' + player.disp_name() + ' won the trick with ' + repr(card) + '.\n\n'
+            + self.tricks_tally(game)
         )
-        message += ',  '.join([p.disp_name() + ': ' + str(p.tricks_won) for p in game.players])
         if game.tricks_played < 12:
             message += '\n\n▶️ ' + player.disp_name() + ' leads next.'
         for chat_id in game.get_chat_ids():
@@ -433,17 +505,39 @@ class ChatHandler:
             except Exception:
                 logger.exception('Could not send restart notice to chat %s', chat_id)
 
+    def match_score_text(self, game):
+        if not game.match_scores:
+            return ''
+        ranked = sorted(game.match_scores.items(), key=lambda item: -item[1])
+        scores = ' · '.join(f'{game.match_names[uid]} {won}' for uid, won in ranked)
+        plural = 's' if game.hands_played != 1 else ''
+        return f'📈 Hands won at this table ({game.hands_played} hand{plural}): {scores}'
+
+    def deal_again_markup(self, game):
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton('🔁 Deal again', callback_data=callback_data('r', game))
+        ]])
+
     async def game_winners(self, team, winners, bid, req, game):
         declarers = [game.declarer.disp_name()]
-        if game.partner != game.declarer:
+        if game.partner is not game.declarer:
             declarers.append(game.partner.disp_name())
         declarers_text = ' and '.join(declarers)
         winners_text = ' and '.join([p.disp_name() for p in winners])
-        message = f'{declarers_text} gained {bid} of the {req} required tricks to win.\n\n'
-        message += f'Congrats to {winners_text}!\n\n'
+        contract = self.str_utils.bid_id_to_str(game.contract)
+        outcome = 'made' if team == 0 else 'went down in'
+        message = (
+            f'🏁 {declarers_text} {outcome} {contract}: {bid} of the {req} required tricks.\n'
+            f'🤝 Partner card: {game.partner_card!r}\n'
+            f'📜 Auction: {self.auction_text(game)}\n\n'
+            f'Congrats to {winners_text}!\n'
+        )
+        score_text = self.match_score_text(game)
+        if score_text:
+            message += '\n' + score_text + '\n'
         message += (
-            'Game ended, all players have been kicked from the room.\n'
-            'Type /join to start a rematch.'
+            '\nTap 🔁 Deal again to play another hand at this table, '
+            'or /join for a new one.'
         )
         for chat_id in game.get_chat_ids():
-            await self.send_message(chat_id, message)
+            await self.send_message(chat_id, message, reply_markup=self.deal_again_markup(game))

@@ -9,6 +9,22 @@ Build numbers are included in the alpha stage of development, and will be droppe
 Canonical package version is defined in `sgbridgebot/__init__.py` as `__version__`, and release entries should match it.
 
 
+## 0.3.0a1
+Smarter bots, table features, stats and cleanup
++ Fixed bots ignoring suit length: hand_score counted the whole hand's length points for every suit
++ Bots bid on a points ladder (including no trump), call the highest missing trump as partner,
+  discard their lowest card by rank, and stop ruffing tricks their own side is winning
++ Added `tools/benchmark.py`: bot-only games through the real engine, failing on any illegal move
++ Wash is now the player's choice: on your first bid with 4 points or fewer (no more automatic redeals)
++ The table is told when the partner card is played; trick counts then show each side against its target
++ Bid prompts show the auction so far; the end-of-hand recap shows contract, partner card and auction
++ Added a Deal again button that keeps the same table playing with a running score
++ Added `/stats` and `/leaderboard`, backed by SQLite (`DATABASE_PATH`)
++ The webhook path no longer contains the bot token
++ CI now runs on pushes to master (it was watching a "main" branch that does not exist)
++ Packaging moved to pyproject.toml; version is now PEP 440 (`0.3.0a1`)
++ Modules renamed to snake_case (`sgbridgebot.bridge_game` etc.); the emulator moved to `tools/`
+
 ## 0.2.0-alpha
 Gameplay fixes, inline buttons and an emulator
 + Fixed a hang when a player holding only trumps had to lead before trump was broken

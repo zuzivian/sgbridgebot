@@ -1,6 +1,8 @@
 
 import unicodedata
 
+from sgbridgebot.stats import LEADERBOARD_MIN_HANDS
+
 
 class StringUtils:
 
@@ -10,6 +12,8 @@ class StringUtils:
     def __init__(self):
         self.type = None
         self.suit_str = [u'\U00002663', u'\U00002666', u'\U00002764', u'\U00002660']
+        # Spelled out next to the symbols for screen readers and small fonts.
+        self.suit_names = ['Clubs (C)', 'Diamonds (D)', 'Hearts (H)', 'Spades (S)']
         self.suit_aliases = {
             'C': self.suit_str[0],
             'D': self.suit_str[1],
@@ -74,10 +78,35 @@ class StringUtils:
         message = "You have the following cards in your hand:\n"
         for suit in range(4):
             cards = player.get_all_suit(suit)
-            message += self.suit_str[suit] + ": "
-            message += ",  ".join([c.get_rank() for c in cards])
+            message += f'{self.suit_str[suit]} {self.suit_names[suit]}: '
+            message += ",  ".join([c.get_rank() for c in cards]) or '—'
             message += "\n"
         return message
+
+    def player_stats(self, record):
+        declared = (
+            f'{record.declared_made}/{record.declared} contracts made as declarer'
+            if record.declared else 'never declarer yet'
+        )
+        return (
+            f'📊 {record.name}: {record.won} of {record.hands} hands won '
+            f'({record.win_rate:.0%})\n'
+            f'🎯 {declared}\n'
+            f'🃏 {record.tricks} tricks taken'
+        )
+
+    def leaderboard(self, rows, scope):
+        if not rows:
+            return (
+                f'🏆 No leaderboard for {scope} yet: players need '
+                f'{LEADERBOARD_MIN_HANDS} finished hands to appear.'
+            )
+        medals = ['🥇', '🥈', '🥉']
+        lines = [f'🏆 Leaderboard for {scope} (win rate, min {LEADERBOARD_MIN_HANDS} hands)']
+        for i, row in enumerate(rows):
+            place = medals[i] if i < len(medals) else f'{i + 1}.'
+            lines.append(f'{place} {row.name}: {row.win_rate:.0%} ({row.won}/{row.hands})')
+        return '\n'.join(lines)
 
     def bid_str_to_id(self, text):
         normalized = unicodedata.normalize(

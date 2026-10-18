@@ -4,10 +4,10 @@ from unittest import mock
 
 from telegram import User
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.ChatHandler import ChatHandler
-from sgbridgebot.CommandUtils import NOT_IN_GAME, CommandUtils
-from sgbridgebot.GameManager import GameManager
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.chat_handler import ChatHandler
+from sgbridgebot.command_utils import NOT_IN_GAME, CommandUtils
+from sgbridgebot.game_manager import GameManager
 from sgbridgebot.game_types import GameState, GameType
 
 GROUP_ID = -500
@@ -335,3 +335,185 @@ def test_start_and_help_commands_return_guidance_text():
 
     assert "Quick start" in start.message.replies[0]
     assert "Commands" in help_update.message.replies[0]
+
+
+async def _finish_hand(game, declarer_tricks=7):
+    game.state = GameState.PLAY
+    game.contract = 0
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.partner_card = game.players[2].hand[0]
+    game.declarer.tricks_won = declarer_tricks
+    game.players[1].tricks_won = 13 - declarer_tricks
+    game.tricks_played = 13
+    async with game.lock:
+        await game.end_game()
+
+
+def test_finished_hand_offers_deal_again_and_keeps_table_score():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game)
+        recap = chat.sent[-1]
+        taps = []
+        for user in users:
+            update = callback_update(user, f"r:{game.short_id}:0")
+            await utils.callback(update, None)
+            taps.append(update)
+        return manager, game, recap, taps
+
+    manager, old_game, recap, taps = run(scenario())
+    _, text, markup = recap
+    assert "made 1♣: 7 of the 7 required tricks" in text
+    assert "Hands won at this table (1 hand)" in text
+    assert [b.text for row in markup.inline_keyboard for b in row] == ["🔁 Deal again"]
+    assert all(answer_text(t) == "You are back at the table." for t in taps)
+    new_game = manager.active_games[0]
+    assert new_game is not old_game
+    assert new_game.hands_played == 1
+    assert new_game.match_scores == {1: 1, 2: 0, 3: 1, 4: 0}
+    assert {p.id for p in new_game.players} == {1, 2, 3, 4}
+
+
+def test_deal_again_refuses_strangers_repeats_and_closed_tables():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game, declarer_tricks=3)
+        first = callback_update(users[0], f"r:{game.short_id}:0")
+        await utils.callback(first, None)
+        again = callback_update(users[0], f"r:{game.short_id}:0")
+        await utils.callback(again, None)
+        stranger = callback_update(make_user(99), f"r:{game.short_id}:0")
+        await utils.callback(stranger, None)
+        closed = callback_update(users[1], "r:deadbeef:0")
+        await utils.callback(closed, None)
+        return manager, again, stranger, closed
+
+    manager, again, stranger, closed = run(scenario())
+    assert answer_text(again) == "You are already back at the table."
+    assert answer_text(stranger) == "Only players from that table can deal again."
+    assert "closed" in answer_text(closed)
+    assert len(manager.waiting_games) == 1
+
+
+def test_deal_again_with_bots_starts_when_the_only_human_returns():
+    async def scenario():
+        chat = RecordingChat()
+        manager = GameManager(chat, bot_pause=0)
+        utils = CommandUtils(manager, chat)
+        user = make_user(1)
+        await utils.join(message_update(user, GROUP_ID, "group", "/join"), None)
+        await utils.forcestart(message_update(user, GROUP_ID, "group", "/forcestart"), None)
+        game = manager.active_games[0]
+        await _finish_hand(game)
+        await utils.callback(callback_update(user, f"r:{game.short_id}:0"), None)
+        return manager
+
+    manager = run(scenario())
+    assert len(manager.active_games) == 1
+    assert sum(p.is_bot for p in manager.active_games[0].players) == 3
+
+
+def test_wash_by_button_and_by_text(monkeypatch):
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 3)
+
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        markup = chat.sent[-1][2]
+        seq = game.action_seq
+        await utils.callback(callback_update(users[0], f"w:{game.short_id}:{seq}"), None)
+        # Seat 0 deals again and may wash again; East may not wash out of turn.
+        typed = message_update(users[1], users[1].id, "private", "wash")
+        await utils.wash(typed, None)
+        return chat, markup, game, seq, typed
+
+    chat, markup, game, seq, typed = run(scenario())
+    labels = [b.text for row in markup.inline_keyboard for b in row]
+    assert "🔄 Wash" in labels
+    assert any("called a wash with 3 point(s)" in text for _, text, _ in chat.sent)
+    assert game.action_seq > seq
+    assert "only call a wash" in typed.message.replies[0]
+
+
+def test_stats_and_leaderboard_commands():
+    from sgbridgebot.stats import StatsStore
+
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        manager.stats = StatsStore()
+        empty = message_update(users[0], users[0].id, "private", "/stats")
+        await utils.stats(empty, None)
+        for _ in range(3):
+            await _finish_hand(game)
+            for user in users:
+                await utils.callback(callback_update(user, f"r:{game.short_id}:0"), None)
+            game = manager.active_games[0]
+        mine = message_update(users[0], users[0].id, "private", "/stats")
+        await utils.stats(mine, None)
+        board = message_update(users[1], users[1].id, "private", "/leaderboard")
+        await utils.leaderboard(board, None)
+        return empty, mine, board
+
+    empty, mine, board = run(scenario())
+    assert "No finished hands yet" in empty.message.replies[0]
+    assert "u1: 3 of 3 hands won (100%)" in mine.message.replies[0]
+    assert "3/3 contracts made as declarer" in mine.message.replies[0]
+    assert "Leaderboard for everyone" in board.message.replies[0]
+    assert "🥇" in board.message.replies[0]
+
+
+def test_recap_is_sent_after_the_table_can_deal_again():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        seen = []
+        original = chat.game_winners
+
+        async def recording_game_winners(*args):
+            seen.append(game.short_id in manager.rematch_offers)
+            await original(*args)
+
+        chat.game_winners = recording_game_winners
+        await _finish_hand(game)
+        return seen
+
+    assert run(scenario()) == [True]
+
+
+def test_strangers_joining_do_not_take_rematch_seats():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game)
+        await utils.callback(callback_update(users[0], f"r:{game.short_id}:0"), None)
+        lobby = manager.waiting_games[0]
+        stranger = make_user(50)
+        await utils.join(message_update(stranger, stranger.id, "private", "/join"), None)
+        return manager, lobby, stranger
+
+    manager, lobby, stranger = run(scenario())
+    assert stranger.id not in [p.id for p in lobby.players]
+    assert len(manager.waiting_games) == 2
+
+
+def test_old_deal_again_buttons_stop_working():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game)
+        for user in users[:3]:
+            await utils.callback(callback_update(user, f"r:{game.short_id}:0"), None)
+        # The others don't wait for the fourth player and fill the seat with a bot.
+        await utils.forcestart(message_update(users[0], users[0].id, "private", "/forcestart"), None)
+        second = manager.active_games[0]
+        # The continuation has started: the latecomer's tap on hand 1's button is refused.
+        late = callback_update(users[3], f"r:{game.short_id}:0")
+        await utils.callback(late, None)
+        await _finish_hand(second)
+        # Hand 2 ended, so hand 1's offer is gone and its scores can't fork the match.
+        stale = callback_update(users[0], f"r:{game.short_id}:0")
+        await utils.callback(stale, None)
+        return manager, late, stale, game, second
+
+    manager, late, stale, first, second = run(scenario())
+    assert "already dealt the next hand" in answer_text(late)
+    assert "closed" in answer_text(stale)
+    assert first.short_id not in manager.rematch_offers
+    assert second.short_id in manager.rematch_offers

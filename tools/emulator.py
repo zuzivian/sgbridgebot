@@ -14,10 +14,10 @@ itself).
 Emulator plays the human side: users type commands and text, and tap inline
 buttons. Scenario functions drive whole games and check that they finish.
 
-    python -m sgbridgebot.emulator                 # run every scenario
-    python -m sgbridgebot.emulator --games 25      # plus 25 random full games
-    python -m sgbridgebot.emulator --transcript    # print the chat log too
-    python -m sgbridgebot.emulator --interactive   # play by hand in a REPL
+    python -m tools.emulator                 # run every scenario
+    python -m tools.emulator --games 25      # plus 25 random full games
+    python -m tools.emulator --transcript    # print the chat log too
+    python -m tools.emulator --interactive   # play by hand in a REPL
 '''
 
 import argparse
@@ -39,8 +39,8 @@ if __package__ in (None, ""):
 from telegram import Update
 from telegram.request import BaseRequest
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.ChatBot import ChatBot
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.chat_bot import ChatBot
 from sgbridgebot.game_types import GameState, GameType
 
 BOT_ID = 4242
@@ -326,7 +326,7 @@ class Emulator:
         self.server = FakeTelegram(self.transcript)
         # A turn_timeout of 0 switches the idle timer off.
         self.bot = ChatBot(TOKEN, request=self.server, turn_timeout=turn_timeout or 0,
-                           bot_pause=bot_pause)
+                           bot_pause=bot_pause, database_path=':memory:')
         self.app = self.bot.application
         self.update_ids = itertools.count(1)
         self.callback_ids = itertools.count(1)
@@ -454,11 +454,13 @@ class Emulator:
     def open_prompt(self, user):
         '''
         The newest message with live inline buttons that is meant for this user.
+        A finished hand's "Deal again" button is not a turn prompt.
         '''
         chats = self.visible_chats(user)
         candidates = [
             s for s in self.server.messages.values()
             if s.chat_id in chats and s.inline_buttons and s.addresses(user)
+            and not s.inline_buttons[0]['callback_data'].startswith('r:')
         ]
         return max(candidates, key=lambda s: s.message_id) if candidates else None
 
@@ -772,6 +774,39 @@ async def scenario_restart_notice(rng, echo=False):
         check_clean(emu)
 
 
+async def scenario_deal_again_keeps_table_score(rng, echo=False):
+    '''
+    Two friends and two bots finish a hand, deal again from the recap, and
+    the second recap carries the score of both hands.
+    '''
+    async with Emulator(echo=echo) as emu:
+        group = emu.add_group(-1007, 'Rematch')
+        alice = emu.add_user(901, 'Alice', 'alice')
+        bob = emu.add_user(902, 'Bob', 'bob')
+        await emu.say(alice, group, '/join')
+        await emu.say(bob, group, '/join')
+        await emu.say(alice, group, '/forcestart')
+        await play_until_done(emu, [alice, bob], rng)
+        recaps = [s for s in emu.messages_in(group) if 'Congrats to' in s.text]
+        expect(len(recaps) == 1, 'No recap after the first hand')
+        recap = recaps[0]
+        expect('Hands won at this table (1 hand)' in recap.text, 'First recap has no score')
+        answer = await emu.tap(alice, recap, '🔁 Deal again')
+        expect(answer.answered and not answer.show_alert, f'Deal again refused: {answer.text}')
+        expect(len(emu.bot.manager.waiting_games) == 1, 'Deal again did not open a lobby')
+        answer = await emu.tap(bob, recap, '🔁 Deal again')
+        expect(not answer.show_alert, f'Second player refused: {answer.text}')
+        expect(len(emu.bot.manager.active_games) == 1, 'The second hand did not start')
+        game = emu.bot.manager.active_games[0]
+        expect(game.hands_played == 1, 'The table forgot the first hand')
+        expect(sum(p.is_bot for p in game.players) == 2, 'Bot seats were not refilled')
+        await play_until_done(emu, [alice, bob], rng)
+        recaps = [s for s in emu.messages_in(group) if 'Congrats to' in s.text]
+        expect(len(recaps) == 2, 'No recap after the second hand')
+        expect('(2 hands)' in recaps[1].text, 'Second recap lost the running score')
+        check_clean(emu)
+
+
 async def scenario_random_games(rng, echo=False, games=10):
     for index in range(games):
         async with Emulator(echo=echo) as emu:
@@ -809,6 +844,7 @@ SCENARIOS = [
     scenario_all_trump_hand_can_lead,
     scenario_bots_do_not_block_other_tables,
     scenario_restart_notice,
+    scenario_deal_again_keeps_table_score,
 ]
 
 

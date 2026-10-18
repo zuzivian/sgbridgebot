@@ -1,7 +1,7 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-#### Author: Nathaniel Wong | Version: 0.2.0-alpha
+#### Author: Nathaniel Wong | Version: 0.3.0a1
 
 Canonical version source: `sgbridgebot/__init__.py` (`__version__`).
 
@@ -13,10 +13,11 @@ This project now uses the modern `python-telegram-bot` async handler style
 
 Compatibility target:
 
-+ Python compatibility target: **3.13.x** for deployment (`runtime.txt`) and CI
++ Python compatibility target: **3.13.x** for deployment (`.python-version`, `runtime.txt`) and CI
 + `python-telegram-bot`: **>=21,<22**
 
-These compatibility constraints are also mirrored in `pyproject.toml` under
+Package metadata (dependencies, version source) lives in `pyproject.toml`; build with
+`python -m build`. The compatibility constraints are also mirrored there under
 `[tool.sgbridgebot.compatibility]`.
 
 
@@ -98,7 +99,20 @@ BOT_MODE=polling python3 -m sgbridgebot.main
   empty seats with bots
 + Turn timer (30s by default): if a player runs out of time a move is made for
   them, and after 3 missed turns in a row a bot takes over their seat
-+ Players will be dealt a hand of 13 cards at random
++ Players will be dealt a hand of 13 cards at random. A player whose hand is
+  worth 4 points or fewer (A=4, K=3, Q=2, J=1, plus 1 per card beyond four in
+  a suit) may call a wash on their first bid to have the cards redealt
++ The bid prompt shows the auction so far. When the partner card is played the
+  table is told who the partner is, and trick counts switch to each side's
+  total against its target
++ Bots bid on a points ladder, call the highest missing trump as partner, and
+  avoid ruffing a trick their own side is winning.
+  `python -m tools.benchmark --games 500` plays bot-only games and reports
+  how they do
++ The end-of-hand recap has a Deal again button: the same table plays another
+  hand and keeps a running score
++ `/stats` shows your record and `/leaderboard` the best win rates (in a group,
+  for that group). Finished hands are stored in SQLite (`DATABASE_PATH`)
 + Players tap inline buttons to bid, call a partner card (suit, then rank) and
   play a card; only legal bids and cards are offered. Typed input such as
   `1NT`, `SA` or `pass` still works
@@ -149,8 +163,14 @@ Before starting the bot in production, set the following environment variables:
 - `TELEGRAM_WEBHOOK_SECRET`: Optional Telegram webhook secret token used to validate inbound webhook requests.
   - If set, it must be non-empty and must not contain leading/trailing whitespace.
 - `TURN_TIMEOUT_SECONDS`: Optional seconds each player has per turn. Defaults to `30`; `0` turns the timer off.
+- `DATABASE_PATH`: Optional SQLite file for finished hands (`/stats`, `/leaderboard`). Defaults to
+  `sgbridgebot.db` in the working directory; `:memory:` keeps nothing on disk. On platforms with an
+  ephemeral filesystem (Koyeb, Render free tier), point it at a mounted volume or stats reset on
+  every redeploy.
 
-The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_TOKEN>`.
+The webhook URL is constructed at startup as `<resolved_base_url>/telegram-<hash>`, where `<hash>`
+is derived from the bot token (a SHA-256 prefix), so the token itself never appears in URLs or
+access logs.
 When `TELEGRAM_WEBHOOK_SECRET` is configured, startup passes it to Telegram via
 `Application.run_webhook(secret_token=...)`.
 
@@ -194,7 +214,7 @@ Suggested setup path:
 
 ## Playtesting without Telegram (emulator)
 
-`sgbridgebot/emulator.py` plays the bot end to end with no Telegram account,
+`tools/emulator.py` plays the bot end to end with no Telegram account,
 token or network. A fake Bot API server plugs into python-telegram-bot as its
 HTTP layer, so the real application, handlers and keyboards run unchanged. The
 fake server keeps every message the bot sends and rejects what Telegram would
@@ -204,16 +224,16 @@ started the bot, and edits that change nothing.
 ```bash
 # Run every scripted scenario (group, private-chat matchmaking, bots, idle
 # players, leaving on your turn, all-trump lead, two tables at once, restart)
-python -m sgbridgebot.emulator
+python -m tools.emulator
 
 # Also play 25 random full games, with players tapping wrong and old buttons
-python -m sgbridgebot.emulator --games 25 --seed 3
+python -m tools.emulator --games 25 --seed 3
 
 # Print the whole chat log
-python -m sgbridgebot.emulator --transcript
+python -m tools.emulator --transcript
 
 # Play by hand: say alice group /join, tap alice 1NT, auto, ...
-python -m sgbridgebot.emulator --interactive
+python -m tools.emulator --interactive
 ```
 
 The scenarios also run in the test suite (`tests/test_emulator_playtest.py`).

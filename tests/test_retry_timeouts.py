@@ -3,8 +3,8 @@ import asyncio
 import pytest
 from telegram.error import TimedOut
 
-from sgbridgebot.ChatHandler import ChatHandler
-from sgbridgebot.CommandUtils import CommandUtils
+from sgbridgebot.chat_handler import ChatHandler
+from sgbridgebot.command_utils import CommandUtils
 
 
 class _AlwaysTimeoutBot:

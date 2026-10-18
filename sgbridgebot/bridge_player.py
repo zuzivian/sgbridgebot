@@ -2,6 +2,12 @@ import random
 
 from telegram import User
 
+# Points (high cards plus length) a bot needs to open the bidding, and per extra level.
+BID_OPENING_POINTS = 10
+BID_POINTS_PER_LEVEL = 2
+# High-card points a balanced hand needs before a bot prefers no trump.
+NT_MIN_HCP = 15
+
 
 class BridgePlayer:
 
@@ -26,7 +32,9 @@ class BridgePlayer:
     hand_score(): returns score of player's hand
     get_all_suit(suit): returns a list of BridgeCard that match the given suit
     get_top_card_in_suit(suit): returns the highest valued BridgeCard that matches the suit
-    make_auto_bid()
+    make_auto_bid(contract): cheapest bid the hand is worth, or -1 to pass
+    make_auto_partner(trump_suit): card id to call as partner
+    play_auto_card(trick, game): picks, removes and returns a legal card
 
 
     '''
@@ -44,9 +52,6 @@ class BridgePlayer:
             self.player_to_bot()
         else:
             self.player_to_user(user)
-
-    def __eq__(self, other):
-        return self.id == other.id
 
     def player_to_bot(self):
         if self.is_bot:
@@ -82,14 +87,18 @@ class BridgePlayer:
         return self.hand
 
     def hand_score(self, hand):
+        '''
+        Points for a set of cards: A=4, K=3, Q=2, J=1, plus one for each card
+        beyond four in a suit. Only the cards passed in are counted.
+        '''
         score = 0
         for c in hand:
             if c.rank > 10:
                 score += c.rank - 10
         for s in range(4):
-            cards_suit = self.get_all_suit(s)
-            if len(cards_suit) > 4:
-                score += len(cards_suit) - 4
+            suit_length = len([c for c in hand if c.suit == s])
+            if suit_length > 4:
+                score += suit_length - 4
         return score
 
     def get_all_suit(self, suit):
@@ -115,116 +124,169 @@ class BridgePlayer:
             return None
 
     def get_best_suit(self):
-        suit = 0
-        score = 0
-        for s in range(4):
-            suit_score = self.hand_score(self.get_all_suit(s))
-            if  suit_score > score:
-                score = suit_score
-                suit = s
-        return suit
+        # Length matters most for a trump suit, then the honours in it.
+        # Ties go to the higher-ranking suit, which is cheaper to outbid with.
+        return max(
+            range(4),
+            key=lambda s: (len(self.get_all_suit(s)) + self.suit_score(s), s),
+        )
 
     def suit_score(self, suit):
         return self.hand_score(self.get_all_suit(suit))
 
-    def make_auto_bid(self, contract):
-        # TODO: Improve bidding aggressiveness. Bots are currently too conservative and
-        # do not fully exploit strong hands during competitive auctions.
-        best_suit = self.get_best_suit()
-        hand_quality = 0.4*(self.hand_score(self.hand)/2 + self.suit_score(best_suit))
-        if contract > 33 or random.randint(0, ((2*contract+2) ** 2)) > hand_quality:
-            return -1
-        else:
-            # can't go above 7NT
-            bid = -1
-            if (contract%5 < best_suit):
-                bid = contract - contract%5 + best_suit
-            elif (contract%5 > best_suit):
-                bid = contract - contract%5 + best_suit + 5
-            return min(34, bid)
+    def high_card_points(self):
+        return sum(c.rank - 10 for c in self.hand if c.rank > 10)
 
-    def make_auto_partner(self):
-        #TODO: implement partner choosing algorithm for bot
-        suit = self.get_best_suit()
-        cards = self.get_all_suit(suit)
-        for rank in reversed(range(2,15)):
-            if rank not in [c.rank for c in cards]:
-                break
-        return rank-2 + suit*13
+    def is_balanced(self):
+        lengths = sorted(len(self.get_all_suit(s)) for s in range(4))
+        # 4-3-3-3, 4-4-3-2 or 5-3-3-2 shapes.
+        return lengths[0] >= 2 and lengths[3] <= 5 and lengths[1] >= 3
+
+    def max_bid_level(self):
+        '''
+        The highest level (1-7) this hand is worth bidding to, or 0 to pass.
+        Opening needs 10 points; each further level needs 2 more.
+        '''
+        points = self.hand_score(self.hand)
+        if points < BID_OPENING_POINTS:
+            return 0
+        return min(7, 1 + (points - BID_OPENING_POINTS) // BID_POINTS_PER_LEVEL)
+
+    def preferred_denomination(self):
+        '''
+        0-3 for a suit, 4 for no trump.
+        '''
+        if self.is_balanced() and self.high_card_points() >= NT_MIN_HCP:
+            return 4
+        return self.get_best_suit()
+
+    def make_auto_bid(self, contract):
+        '''
+        Returns the cheapest bid above the contract in this hand's preferred
+        denomination, or -1 to pass when that would go past what the hand is worth.
+        '''
+        max_level = self.max_bid_level()
+        if max_level == 0:
+            return -1
+        bid = self.preferred_denomination()
+        while bid <= contract:
+            bid += 5
+        if bid > 34 or bid // 5 + 1 > max_level:
+            return -1
+        return bid
+
+    def make_auto_partner(self, trump_suit=None):
+        '''
+        Calls the highest trump this player does not hold. In no trump, calls
+        a missing ace, starting with the longest suit, then kings and so on.
+        '''
+        held = {c.id for c in self.hand}
+        if trump_suit is None:
+            trump_suit = self.get_best_suit()
+        if 0 <= trump_suit <= 3:
+            suits = [trump_suit]
+        else:
+            suits = sorted(range(4), key=lambda s: -len(self.get_all_suit(s)))
+        for rank in range(14, 1, -1):
+            for suit in suits:
+                card_id = suit * 13 + rank - 2
+                if card_id not in held:
+                    return card_id
+        # Holding every candidate: calling one of our own cards means playing alone.
+        return suits[0] * 13 + 12
+
+    def _teammate_relation(self, game, other):
+        '''
+        True if this player knows `other` is on its side, False if it knows
+        they are not, None if it cannot tell yet.
+        '''
+        relation = getattr(game, 'known_teammate', None)
+        if relation is None or other is None:
+            return None
+        return relation(self, other)
+
+    def _trick_winner_owner(self, trick, game, trump_suit):
+        players = getattr(game, 'players', None)
+        trick_start = getattr(game, 'trick_start', None)
+        if not players or trick_start is None or len(players) != 4:
+            return None
+        winner = self.get_current_trick_winner_card(trick, trump_suit)
+        return players[(trick_start + trick.index(winner)) % 4]
+
+    def _no_higher_outstanding(self, card, trick, game):
+        '''
+        True when every higher card of this suit is already played or in our hand.
+        '''
+        seen = {c.id for c in self.hand} | {c.id for c in trick}
+        for played in game.trick_history:
+            seen.update(c.id for c in played)
+        return all(card.suit * 13 + rank - 2 in seen for rank in range(card.rank + 1, 15))
+
+    def _lowest_discard(self, trump_suit):
+        '''
+        The lowest non-trump card, from the shortest suit on a tie, to keep
+        high cards and long suits. Falls back to the lowest trump.
+        '''
+        others = [c for c in self.hand if c.suit != trump_suit]
+        if others:
+            return min(others, key=lambda c: (c.rank, len(self.get_all_suit(c.suit))))
+        return min(self.hand, key=lambda c: c.rank)
+
+    def _take(self, card):
+        self.hand.remove(card)
+        return card
 
     def play_auto_card(self, trick, game):
-        # TODO: make bots partner aware?
-        # TODO: implement partner-aware trick strategy
-
-        # some vars
         trump_suit = game.get_trump_suit()
 
         if len(self.hand) == 0:
             return None
 
-        # Seat assumption: len(trick) == 0 means this player is leading the trick.
-        # pick random card if leading
-        # possibly top trump card if already broken
+        # Leading: cash a sure winner, otherwise lead low from the longest side suit.
         if len(trick) == 0:
             for suit in range(4):
                 # can't play trump if not broken
                 if suit == trump_suit and not game.trump_broken:
                     continue
                 top_card = self.get_top_card_in_suit(suit)
-                # play top card if that's cool
                 if self.is_highest_remaining_in_suit(top_card, game):
-                    self.hand.remove(top_card)
-                    return top_card
-            # else pick random low card that's not trump
-            low_cards = []
-            for suit in range(4):
-                if suit != trump_suit:
-                    low_card = self.get_lowest_card_in_suit(suit)
-                    if low_card is not None:
-                        low_cards.append(low_card)
-            low_cards.sort(key=lambda c: c.id)
-            if len(low_cards) > 0:
-                self.hand.remove(low_cards[0])
-                return low_cards[0]
-            # it's probably trump left
-            return self.hand.pop(0)
+                    return self._take(top_card)
+            side_suits = [s for s in range(4) if s != trump_suit and self.get_all_suit(s)]
+            if side_suits:
+                longest = max(side_suits, key=lambda s: (len(self.get_all_suit(s)), -s))
+                return self._take(self.get_all_suit(longest)[0])
+            # Only trumps left, which may be led even before trump is broken.
+            return self._take(min(self.hand, key=lambda c: c.rank))
 
-        # get leading/suit card info
         leading_suit = trick[0].suit
         top_suit_card = self.get_top_card_in_suit(leading_suit)
         suit_cards = self.get_all_suit(leading_suit)
+        current_winner = self.get_current_trick_winner_card(trick, trump_suit)
+        teammate_winning = self._teammate_relation(
+            game, self._trick_winner_owner(trick, game, trump_suit)
+        ) is True
+        teammate_safe = teammate_winning and (
+            len(trick) == 3
+            or current_winner.suit == trump_suit
+            or self._no_higher_outstanding(current_winner, trick, game)
+        )
 
         # out of cards in suit
         if len(suit_cards) == 0:
-
-            # check if can trump, if so please trump
+            if teammate_safe:
+                return self._take(self._lowest_discard(trump_suit))
+            # Ruff with the cheapest trump that beats any trump already played.
             highest_trick_trump = 0
             for c in trick:
                 if c.rank > highest_trick_trump and c.suit == trump_suit:
                     highest_trick_trump = c.rank
-            trump_cards = self.get_all_suit(trump_suit)
-            for card in trump_cards:
+            for card in self.get_all_suit(trump_suit):
                 if card.rank > highest_trick_trump:
-                    self.hand.remove(card)
-                    return card
+                    return self._take(card)
+            return self._take(self._lowest_discard(trump_suit))
 
-            #couldn't find suitable trump card, play random low card
-            low_cards = []
-            for suit in range(4):
-                if suit != trump_suit:
-                    low_card = self.get_lowest_card_in_suit(suit)
-                    if low_card is not None:
-                        low_cards.append(low_card)
-            low_cards.sort(key=lambda c: c.id)
-            if len(low_cards) > 0:
-                self.hand.remove(low_cards[0])
-                return low_cards[0]
-            #if not just take random low card
-            return self.hand.pop(0)
-
-        # Seat assumption: len(trick) in (1, 2) means this player is 2nd/3rd seat.
-        # Seat assumption: len(trick) == 3 means this player is last seat.
-        current_winner = self.get_current_trick_winner_card(trick, trump_suit)
+        if teammate_safe:
+            return self._take(suit_cards[0])
 
         # Among legal follow-suit cards, find the cards that currently win this trick.
         winning_cards = [
@@ -232,21 +294,17 @@ class BridgePlayer:
             if self.card_wins_over(card, current_winner, leading_suit, trump_suit)
         ]
 
-        # Last seat should resolve the trick outcome now (before the 4th card is played).
+        # Last seat wins as cheaply as it can.
         if len(trick) == 3 and len(winning_cards) > 0:
-            chosen_card = winning_cards[0]
-            self.hand.remove(chosen_card)
-            return chosen_card
+            return self._take(winning_cards[0])
 
         # In 2nd/3rd seat, cash a likely winner only when it can beat the current trick winner
         # and appears to be the top remaining card in the suit.
         if len(winning_cards) > 0 and self.is_highest_remaining_in_suit(top_suit_card, game):
-            self.hand.remove(top_suit_card)
-            return top_suit_card
+            return self._take(top_suit_card)
 
         # give up, just play lowest card in suit
-        self.hand.remove(suit_cards[0])
-        return suit_cards[0]
+        return self._take(suit_cards[0])
 
     def get_current_trick_winner_card(self, trick, trump_suit):
         if len(trick) == 0:
