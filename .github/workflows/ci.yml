@@ -85,13 +85,17 @@ jobs:
       - name: Install package dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel
+          pip install build
           pip install -r requirements-dev.txt
 
       - name: Packaging and import smoke test
         run: |
-          python setup.py sdist bdist_wheel
+          python -m build
+          pip install --no-deps dist/*.whl
+          # Import from outside the checkout so the installed wheel is what loads.
+          cd "$RUNNER_TEMP"
           python - <<'PY'
           import sgbridgebot
+          import sgbridgebot.main
           print(sgbridgebot.__version__)
           PY

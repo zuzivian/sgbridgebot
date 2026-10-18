@@ -1,7 +1,7 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-#### Author: Nathaniel Wong | Version: 0.2.0-alpha
+#### Author: Nathaniel Wong | Version: 0.3.0a1
 
 Canonical version source: `sgbridgebot/__init__.py` (`__version__`).
 
@@ -13,10 +13,11 @@ This project now uses the modern `python-telegram-bot` async handler style
 
 Compatibility target:
 
-+ Python compatibility target: **3.13.x** for deployment (`runtime.txt`) and CI
++ Python compatibility target: **3.13.x** for deployment (`.python-version`, `runtime.txt`) and CI
 + `python-telegram-bot`: **>=21,<22**
 
-These compatibility constraints are also mirrored in `pyproject.toml` under
+Package metadata (dependencies, version source) lives in `pyproject.toml`; build with
+`python -m build`. The compatibility constraints are also mirrored there under
 `[tool.sgbridgebot.compatibility]`.
 
 
