@@ -167,7 +167,9 @@ Before starting the bot in production, set the following environment variables:
   ephemeral filesystem (Koyeb, Render free tier), point it at a mounted volume or stats reset on
   every redeploy.
 
-The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_TOKEN>`.
+The webhook URL is constructed at startup as `<resolved_base_url>/telegram-<hash>`, where `<hash>`
+is derived from the bot token (a SHA-256 prefix), so the token itself never appears in URLs or
+access logs.
 When `TELEGRAM_WEBHOOK_SECRET` is configured, startup passes it to Telegram via
 `Application.run_webhook(secret_token=...)`.
 

@@ -9,6 +9,7 @@ from sgbridgebot.ChatBot import (
     _resolve_webhook_base_url,
     _resolve_webhook_listen_port,
     _resolve_webhook_secret_token,
+    _webhook_path,
 )
 
 
@@ -118,8 +119,8 @@ def test_chatbot_start_webhook_passes_secret_token_when_set(monkeypatch):
     app.run_webhook.assert_called_once_with(
         listen="0.0.0.0",
         port=8000,
-        url_path="token-123",
-        webhook_url="https://example.com/token-123",
+        url_path=_webhook_path("token-123"),
+        webhook_url="https://example.com/" + _webhook_path("token-123"),
         secret_token="secret-123",
     )
 
@@ -164,3 +165,11 @@ def test_main_webhook_mode_exits_on_invalid_resolved_webhook_inputs(monkeypatch)
 
     assert exc.value.code == 1
     bot_instance.start.assert_called_once_with(0)
+
+
+def test_webhook_path_hides_the_token_and_is_stable():
+    path = _webhook_path("123456:secret-token")
+
+    assert "secret-token" not in path and "123456" not in path
+    assert path == _webhook_path("123456:secret-token")
+    assert path != _webhook_path("123456:other-token")

@@ -513,9 +513,8 @@ class BridgeGame:
             self.declarer = self.curr_player()
             await self.chat_handler.player_bid(bid, self.curr_player(), self)
             await self.next_turn()
-        elif not self.curr_player().is_bot:
-            await self.chat_handler.invalid_bid(self.curr_player(), self)
         else:
+            # make_bid validates human bids first, so only a faulty bot gets here.
             logger.warning(
                 "Invalid bid made by bot; ignoring bid and continuing auction context: "
                 "game_id=%s, player_id=%s, contract=%s, attempted_bid=%s",

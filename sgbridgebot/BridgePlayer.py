@@ -53,9 +53,6 @@ class BridgePlayer:
         else:
             self.player_to_user(user)
 
-    def __eq__(self, other):
-        return self.id == other.id
-
     def player_to_bot(self):
         if self.is_bot:
             self.first_name = 'Player' + str(random.randint(100,999))

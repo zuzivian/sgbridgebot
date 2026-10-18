@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 from urllib.parse import urlparse
@@ -57,6 +58,11 @@ def _mask_token(token):
         return f'<redacted:{len(token)} chars>'
     return f'{token[:4]}...{token[-4:]}'
 
+
+
+def _webhook_path(token):
+    """Return a stable URL path for the webhook that does not reveal the bot token."""
+    return 'telegram-' + hashlib.sha256(token.encode()).hexdigest()[:32]
 
 
 def _resolve_webhook_base_url():
@@ -219,11 +225,14 @@ class ChatBot:
             port = _resolve_webhook_listen_port()
             webhook_base_url = _resolve_webhook_base_url()
             webhook_secret = _resolve_webhook_secret_token()
-            webhook_url = webhook_base_url + '/' + token
+            # The path is derived from the token rather than being the token itself,
+            # so proxy and access logs never record a usable bot token.
+            webhook_path = _webhook_path(token)
+            webhook_url = webhook_base_url + '/' + webhook_path
 
             logger.info('Starting webhook listener on 0.0.0.0:%s', port)
-            logger.info('Registering Telegram webhook URL: %s/<token:%s>',
-                        webhook_base_url, _mask_token(token))
+            logger.info('Registering Telegram webhook URL: %s (bot token %s)',
+                        webhook_url, _mask_token(token))
             logger.info('Webhook URL diagnostics: length=%s token_length=%s',
                         len(webhook_url), len(token))
             logger.info('Webhook secret configured: %s', bool(webhook_secret))
@@ -232,7 +241,7 @@ class ChatBot:
                 self.application.run_webhook(
                     listen='0.0.0.0',
                     port=port,
-                    url_path=token,
+                    url_path=webhook_path,
                     webhook_url=webhook_url,
                     secret_token=webhook_secret,
                 )

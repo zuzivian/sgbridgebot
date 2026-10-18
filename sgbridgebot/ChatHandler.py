@@ -241,10 +241,6 @@ class ChatHandler:
                 chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid)
             )
 
-    async def invalid_bid(self, player, game):
-        await self.send_message(player.chat_id, 'Invalid bid!')
-        await self.request_bid(player, game)
-
     async def bid_winner(self, player, bid, game):
         bid_str = self.str_utils.bid_id_to_str(bid)
         message = (
