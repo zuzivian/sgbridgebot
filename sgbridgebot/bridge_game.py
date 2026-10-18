@@ -75,13 +75,18 @@ class BridgeGame:
         self.trump_broken = 0
         self.trick_history = []
         self.auction_log = []  # (player name, bid id or -1 for pass)
-        self.auction_acted = set()  # ids of players who bid or passed this deal
+        # Seats (not player ids, which change when a bot takes over) that have
+        # bid or passed this deal.
+        self.auction_acted = set()
         # Running score for a table that keeps dealing again: user id -> hands won.
         self.match_scores = {}
         self.match_names = {}
         self.hands_played = 0
         self.final_players = []  # seats as they were when the hand ended
         self.result = None  # (team, declarer tricks, required tricks) once scored
+        # Short id of the finished game this lobby deals again for, if any.
+        # Such a lobby is kept for that table's players; /join never lands in it.
+        self.rematch_of = None
         self.action_seq = 0
         self.last_prompt = None  # (chat_id, message_id) of the open inline prompt
         self.idle_strikes = {}
@@ -298,13 +303,15 @@ class BridgeGame:
             team, winners = 1, [p for p in self.players if not self.is_declarer_side(p)]
         self.result = (team, declarer_tricks, required_tricks)
         self._record_match_result(winners)
+        self.final_players = list(self.players)
+        # Register the finished table (Deal again, stats) before its recap
+        # goes out, so the recap's button works from the first tap.
+        await self._notify_complete()
         await self.chat_handler.game_winners(
             team, winners, declarer_tricks, required_tricks, self
         )
         # end of game.. exiting..
-        self.final_players = self.players
         self.players = []
-        await self._notify_complete()
 
     async def abandon(self):
         '''
@@ -473,7 +480,7 @@ class BridgeGame:
         return (
             self.state == GameState.AUCTION
             and player is self.curr_player()
-            and player.id not in self.auction_acted
+            and self.turn not in self.auction_acted
             and player.hand_score(player.hand) <= WASH_MAX_POINTS
         )
 
@@ -497,7 +504,7 @@ class BridgeGame:
     async def process_bid(self, bid):
         bidder = self.curr_player()
         if bid == -1 or bid > self.contract:
-            self.auction_acted.add(bidder.id)
+            self.auction_acted.add(self.turn)
             self.auction_log.append((bidder.disp_name(), bid))
         if bid == -1:
             self.consecutive_passes += 1

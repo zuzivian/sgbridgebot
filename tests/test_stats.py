@@ -61,3 +61,22 @@ def test_leaderboard_needs_min_hands_and_can_be_scoped_to_a_chat(mock_handler, m
     assert {row.name for row in overall[:2]} == {"u1", "u3"}
     assert store.leaderboard(chat_id=-10) == []
     assert store.leaderboard(chat_id=-20) == []
+
+
+def test_leaderboard_orders_by_each_players_win_rate():
+    store = StatsStore()
+    records = {1: (1, 3), 2: (3, 3), 3: (2, 4), 4: (5, 8)}  # user: (won, hands)
+    with store.db:
+        for user_id, (won, hands) in records.items():
+            for i in range(hands):
+                hand_id = store.db.execute(
+                    "INSERT INTO hands (finished_at, game_type, contract, declarer_tricks, "
+                    "required_tricks, made) VALUES (0, 1, 0, 7, 7, 1)"
+                ).lastrowid
+                store.db.execute(
+                    "INSERT INTO hand_players VALUES (?, ?, ?, 5, 0, 0, ?, 0)",
+                    (hand_id, user_id, f"n{user_id}", int(i < won)),
+                )
+
+    assert [row.name for row in store.leaderboard(5)] == ["n2", "n4", "n3", "n1"]
+    assert [row.name for row in store.leaderboard()] == ["n2", "n4", "n3", "n1"]

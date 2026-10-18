@@ -460,3 +460,60 @@ def test_stats_and_leaderboard_commands():
     assert "3/3 contracts made as declarer" in mine.message.replies[0]
     assert "Leaderboard for everyone" in board.message.replies[0]
     assert "🥇" in board.message.replies[0]
+
+
+def test_recap_is_sent_after_the_table_can_deal_again():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        seen = []
+        original = chat.game_winners
+
+        async def recording_game_winners(*args):
+            seen.append(game.short_id in manager.rematch_offers)
+            await original(*args)
+
+        chat.game_winners = recording_game_winners
+        await _finish_hand(game)
+        return seen
+
+    assert run(scenario()) == [True]
+
+
+def test_strangers_joining_do_not_take_rematch_seats():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game)
+        await utils.callback(callback_update(users[0], f"r:{game.short_id}:0"), None)
+        lobby = manager.waiting_games[0]
+        stranger = make_user(50)
+        await utils.join(message_update(stranger, stranger.id, "private", "/join"), None)
+        return manager, lobby, stranger
+
+    manager, lobby, stranger = run(scenario())
+    assert stranger.id not in [p.id for p in lobby.players]
+    assert len(manager.waiting_games) == 2
+
+
+def test_old_deal_again_buttons_stop_working():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game)
+        for user in users[:3]:
+            await utils.callback(callback_update(user, f"r:{game.short_id}:0"), None)
+        # The others don't wait for the fourth player and fill the seat with a bot.
+        await utils.forcestart(message_update(users[0], users[0].id, "private", "/forcestart"), None)
+        second = manager.active_games[0]
+        # The continuation has started: the latecomer's tap on hand 1's button is refused.
+        late = callback_update(users[3], f"r:{game.short_id}:0")
+        await utils.callback(late, None)
+        await _finish_hand(second)
+        # Hand 2 ended, so hand 1's offer is gone and its scores can't fork the match.
+        stale = callback_update(users[0], f"r:{game.short_id}:0")
+        await utils.callback(stale, None)
+        return manager, late, stale, game, second
+
+    manager, late, stale, first, second = run(scenario())
+    assert "already dealt the next hand" in answer_text(late)
+    assert "closed" in answer_text(stale)
+    assert first.short_id not in manager.rematch_offers
+    assert second.short_id in manager.rematch_offers

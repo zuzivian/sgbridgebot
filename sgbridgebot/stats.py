@@ -119,7 +119,8 @@ class StatsStore:
             'SELECT user_id, COUNT(*) AS hands, SUM(won) AS won, SUM(declarer), '
             'SUM(declarer * won), SUM(tricks) '
             f'FROM hand_players {where} GROUP BY user_id HAVING hands >= ? '
-            'ORDER BY CAST(won AS REAL) / hands DESC, won DESC LIMIT ?',
+            # Aggregates spelled out: "won" alone would mean the column, not SUM(won).
+            'ORDER BY CAST(SUM(won) AS REAL) / COUNT(*) DESC, SUM(won) DESC LIMIT ?',
             (*params, LEADERBOARD_MIN_HANDS, limit),
         ).fetchall()
         names = dict(self.db.execute(

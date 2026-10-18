@@ -472,3 +472,17 @@ def test_declarer_who_calls_own_card_knows_everyone_else_is_against_them(mock_ha
     game.partner = north
 
     assert game.known_teammate(north, east) is False
+
+
+def test_bot_taking_over_a_seat_that_already_passed_cannot_wash(mock_handler, make_user, monkeypatch):
+    async def scenario():
+        game = await _build_started_game(mock_handler, make_user)
+        await game.make_bid(game.players[0], -1)
+        await game.make_bid(game.players[1], 0)
+        monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 0)
+        game.players[0].player_to_bot()
+        game.turn = 0
+        return game, game.can_call_wash(game.players[0])
+
+    game, can_wash = asyncio.run(scenario())
+    assert can_wash is False

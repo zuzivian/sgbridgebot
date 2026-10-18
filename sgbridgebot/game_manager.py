@@ -108,6 +108,8 @@ class GameManager:
 
         def _offer_rematch(self, game):
             seats = [(None if p.is_bot else p.id, p.chat_id) for p in game.final_players]
+            # Only the newest hand of a table can be dealt again.
+            self.rematch_offers.pop(game.rematch_of, None)
             if all(user_id is None for user_id, _ in seats):
                 return
             self.rematch_offers[game.short_id] = RematchOffer(
@@ -136,11 +138,17 @@ class GameManager:
                 game = offer.next_game
                 if game is not None and game.get_player(user.id) is not None:
                     raise AlreadyInGameError('You are already back at the table.')
+                if game is not None and game.state != GameState.SETUP:
+                    raise GameError(
+                        'That table has already dealt the next hand. Use /join for a new game.'
+                    )
                 if self.games_for_user(user.id):
                     raise AlreadyInGameError()
+                # A lobby everyone left is gone; the next player back opens a fresh one.
                 is_new = game is None or game not in self.waiting_games
                 if is_new:
                     game = self.create_game(offer.game_type)
+                    game.rematch_of = short_id
                     game.match_scores = dict(offer.match_scores)
                     game.match_names = dict(offer.match_names)
                     game.hands_played = offer.hands_played
@@ -166,7 +174,8 @@ class GameManager:
                 if chat.type != 'private':
                     # allow friends in group chat to join group game
                     for g in self.waiting_games:
-                        if g.type == GameType.GROUP and chat.id in g.get_chat_ids():
+                        if g.rematch_of is None and g.type == GameType.GROUP \
+                                and chat.id in g.get_chat_ids():
                             game = g
                             break
                     if game is None:
@@ -174,7 +183,8 @@ class GameManager:
                 else: # join auto game
                     # add player to oldest waiting game
                     for g in self.waiting_games:
-                        if len(g.players) < 4 and g.type == GameType.MATCHMAKING:
+                        if g.rematch_of is None and len(g.players) < 4 \
+                                and g.type == GameType.MATCHMAKING:
                             game = g
                             break
                     if game is None:
