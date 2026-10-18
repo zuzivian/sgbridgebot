@@ -1,10 +1,16 @@
 import logging
 import asyncio
 
-from telegram import ReplyKeyboardRemove
-from telegram.error import TimedOut
+from types import SimpleNamespace
 
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, User
+from telegram.error import Forbidden, TimedOut
+
+from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.BridgePlayer import BridgePlayer
 from sgbridgebot.ChatHandler import ChatHandler
+from sgbridgebot.game_types import GameState, GameType
 
 
 class _DummyPlayer:
@@ -47,43 +53,7 @@ def test_bid_winner_clears_bidding_keyboard_before_partner_selection():
     assert all("wins with bid" in call["message"] for call in calls)
 
 
-class _DummyCard:
-    def __init__(self, text):
-        self._text = text
-
-    def __repr__(self):
-        return self._text
-
-
-class _DummyPlayPlayer:
-    def __init__(self, username="u1", first_name="Player", player_id=1):
-        self.username = username
-        self.first_name = first_name
-        self.id = player_id
-        self.chat_id = 1001
-        self._cards = {
-            0: [_DummyCard("♣A"), _DummyCard("♣K")],
-            1: [_DummyCard("♦Q")],
-            2: [],
-            3: [_DummyCard("♠2")],
-        }
-
-    def get_all_suit(self, suit):
-        return list(self._cards[suit])
-
-
-class _DummyDeclarer:
-    def disp_name(self):
-        return "decl"
-
-
-class _DummyPlayGame:
-    contract = 0
-    declarer = _DummyDeclarer()
-    partner_card = "♣A"
-
-
-def test_request_card_builds_keyboard_without_name_error():
+def _started_game(make_user, game_type=GameType.MATCHMAKING):
     handler = ChatHandler(bot=None)
     calls = []
 
@@ -94,61 +64,112 @@ def test_request_card_builds_keyboard_without_name_error():
             "parse_mode": parse_mode,
             "reply_markup": reply_markup,
         })
+        return SimpleNamespace(message_id=len(calls))
+
+    async def fake_remove_keyboard(chat_id, message_id):
+        calls.append({"removed": (chat_id, message_id)})
 
     handler.send_message = fake_send_message
+    handler.remove_keyboard = fake_remove_keyboard
+    game = BridgeGame(handler, game_type)
+    for i, name in enumerate(["_name](", None, "u3", "u4"]):
+        user = User(id=i + 1, is_bot=False, first_name="A_[B<&" if name is None else "P", username=name)
+        game.players.append(BridgePlayer(user, 1001 if game_type == GameType.GROUP else 1001 + i))
+    for i, player in enumerate(game.players):
+        player.give_direction(i + 1)
+    game.deal_hands()
+    game.state = GameState.PLAY
+    game.contract = 0
+    game.declarer = game.players[0]
+    game.partner_card = BridgeCard(51)
+    game.trick_start = 0
+    return handler, game, calls
 
-    asyncio.run(handler.request_card(_DummyPlayPlayer(), _DummyPlayGame()))
+
+def _buttons(markup):
+    return [button for row in markup.inline_keyboard for button in row]
+
+
+def test_request_card_sends_inline_keyboard_of_legal_cards(make_user):
+    handler, game, calls = _started_game(make_user)
+    player = game.players[0]
+
+    asyncio.run(handler.request_card(player, game))
 
     assert len(calls) == 1
     assert calls[0]["chat_id"] == 1001
-    assert "please choose a card to play" in calls[0]["message"]
-    assert calls[0]["reply_markup"] is not None
+    assert calls[0]["parse_mode"] == "HTML"
+    assert "your turn to play" in calls[0]["message"]
+    labels = [b.text for b in _buttons(calls[0]["reply_markup"])]
+    assert labels == game.legal_cards(player)
+    assert game.last_prompt == (1001, 1)
 
 
-def test_request_partner_choice_escapes_markdown_in_username_and_keeps_mention_style():
-    handler = ChatHandler(bot=None)
-    calls = []
+def test_prompt_mentions_escape_html_and_use_tg_user_links(make_user):
+    handler, game, calls = _started_game(make_user)
+    game.state = GameState.PARTNER_CALL
 
-    async def fake_send_message(chat_id, message, parse_mode=None, reply_markup=None):
-        calls.append({
-            "chat_id": chat_id,
-            "message": message,
-            "parse_mode": parse_mode,
-            "reply_markup": reply_markup,
-        })
+    asyncio.run(handler.request_partner_choice(game.players[0], game))
+    asyncio.run(handler.request_partner_choice(game.players[1], game))
 
-    handler.send_message = fake_send_message
-    player = _DummyPlayPlayer(username="_name](")
-
-    asyncio.run(handler.request_partner_choice(player))
-
-    assert len(calls) == 1
-    assert calls[0]["parse_mode"] == "Markdown"
-    assert calls[0]["message"].startswith("@\\_name](")
-    assert "please select a partner card:" in calls[0]["message"]
+    sends = [call for call in calls if "message" in call]
+    assert calls[1] == {"removed": (1001, 1)}
+    assert sends[0]["message"].startswith("@_name](,")
+    assert sends[1]["message"].startswith('<a href="tg://user?id=2">A_[B&lt;&amp;</a>')
+    assert "Choose a suit first" in sends[1]["message"]
+    suit_data = [b.callback_data for b in _buttons(sends[1]["reply_markup"])]
+    assert suit_data == [f"ps:{game.short_id}:{game.action_seq}:{s}" for s in range(4)]
 
 
-def test_request_card_escapes_first_name_fallback_and_keeps_mention_link():
-    handler = ChatHandler(bot=None)
-    calls = []
+def test_bid_keyboard_only_offers_bids_above_the_contract(make_user):
+    handler, game, calls = _started_game(make_user)
+    game.state = GameState.AUCTION
+    game.contract = 32  # 7♥
 
-    async def fake_send_message(chat_id, message, parse_mode=None, reply_markup=None):
-        calls.append({
-            "chat_id": chat_id,
-            "message": message,
-            "parse_mode": parse_mode,
-            "reply_markup": reply_markup,
-        })
+    asyncio.run(handler.request_bid(game.players[0], game))
 
-    handler.send_message = fake_send_message
-    player = _DummyPlayPlayer(username=None, first_name="A_[B", player_id=42)
+    labels = [b.text for b in _buttons(calls[0]["reply_markup"])]
+    assert labels == ["PASS", "7♠", "7NT"]
+    assert all(len(b.callback_data.encode()) <= 64 for b in _buttons(calls[0]["reply_markup"]))
 
-    asyncio.run(handler.request_card(player, _DummyPlayGame()))
 
-    assert len(calls) == 1
-    assert calls[0]["parse_mode"] == "Markdown"
-    assert calls[0]["message"].startswith("[A\\_\\[B](mention:42)")
-    assert "please choose a card to play." in calls[0]["message"]
+def test_group_card_prompt_falls_back_to_group_keyboard_when_dm_is_blocked(make_user):
+    handler, game, calls = _started_game(make_user, GameType.GROUP)
+    player = game.players[1]
+
+    async def refuse_private(chat_id, message, parse_mode=None, reply_markup=None):
+        if chat_id == player.id:
+            raise Forbidden("bot can't initiate conversation with a user")
+        calls.append({"chat_id": chat_id, "message": message, "reply_markup": reply_markup})
+        return SimpleNamespace(message_id=len(calls))
+
+    handler.send_message = refuse_private
+    asyncio.run(handler.request_card(player, game))
+
+    assert player.dm_blocked is True
+    assert calls[0]["chat_id"] == 1001
+    assert isinstance(calls[0]["reply_markup"], ReplyKeyboardMarkup)
+    assert calls[0]["reply_markup"].selective is True
+
+
+def test_card_played_edits_each_chat_by_chat_id_after_a_seat_changes_hands(make_user):
+    handler, game, calls = _started_game(make_user)
+    edits = []
+
+    async def fake_edit(text, chat_id, message_id, parse_mode=None, reply_markup=None):
+        edits.append((chat_id, message_id))
+
+    handler.edit_message_text = fake_edit
+    game.trick = [BridgeCard(0)]
+    asyncio.run(handler.card_played(game.players[0], game.trick[0], game))
+    sent = {call["chat_id"]: i + 1 for i, call in enumerate(calls)}
+
+    # The second player leaves; their private chat drops out of the game.
+    game.players[1].player_to_bot()
+    game.trick.append(BridgeCard(1))
+    asyncio.run(handler.card_played(game.players[1], game.trick[1], game))
+
+    assert edits == [(chat_id, sent[chat_id]) for chat_id in game.get_chat_ids()]
 
 
 class _TimeoutThenSuccessBot:

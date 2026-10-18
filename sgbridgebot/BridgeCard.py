@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 
 
-class BridgeCard(object):
+class BridgeCard:
     '''
     Instance of a standard poker card. Card IDs are ordered by suit first, then
     number.

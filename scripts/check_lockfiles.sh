@@ -4,6 +4,10 @@ set -euo pipefail
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
+# Start from the committed pins so only .in changes (not new upstream releases) fail the check.
+cp requirements.txt "$tmp_dir/requirements.txt"
+cp requirements-dev.txt "$tmp_dir/requirements-dev.txt"
+
 python -m piptools compile --quiet --no-header --strip-extras --generate-hashes --output-file="$tmp_dir/requirements.txt" requirements.in
 python -m piptools compile --quiet --no-header --strip-extras --generate-hashes --output-file="$tmp_dir/requirements-dev.txt" requirements-dev.in
 

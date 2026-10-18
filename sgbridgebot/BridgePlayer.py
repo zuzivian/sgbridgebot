@@ -1,5 +1,6 @@
-from telegram import User
 import random
+
+from telegram import User
 
 
 class BridgePlayer:
@@ -37,6 +38,8 @@ class BridgePlayer:
         self.direction = 0
         self.id = 0
         self.tricks_won = 0
+        # Set once a private message to this player has failed.
+        self.dm_blocked = False
         if self.is_bot:
             self.player_to_bot()
         else:
@@ -46,9 +49,13 @@ class BridgePlayer:
         return self.id == other.id
 
     def player_to_bot(self):
+        if self.is_bot:
+            self.first_name = 'Player' + str(random.randint(100,999))
+        else:
+            # Keep the seat recognisable when a bot takes over from a human.
+            self.first_name = self.disp_name() + ' (bot)'
         self.is_bot = True
         self.chat_id = None
-        self.first_name = 'Player' + str(random.randint(100,999))
         self.username = None
         self.id = -self.direction
 

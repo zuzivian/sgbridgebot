@@ -2,14 +2,31 @@ import logging
 import os
 from urllib.parse import urlparse
 
-from telegram.error import TimedOut
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram import BotCommand
+from telegram.error import TelegramError, TimedOut
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
 from sgbridgebot.ChatHandler import ChatHandler
 from sgbridgebot.CommandUtils import CommandUtils
 from sgbridgebot.GameManager import GameManager
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_TURN_TIMEOUT = 30.0
+
+BOT_COMMANDS = [
+    ('join', 'Join a game lobby'),
+    ('leave', 'Leave your current game'),
+    ('hand', 'Show your hand (private chat)'),
+    ('forcestart', 'Fill empty seats with bots'),
+    ('help', 'Commands and how to play'),
+]
 
 
 def _build_input_regexes():
@@ -111,14 +128,58 @@ def _resolve_webhook_secret_token():
     return secret
 
 
+def _resolve_turn_timeout():
+    """Return seconds a player has per turn, or None when TURN_TIMEOUT_SECONDS=0."""
+    raw = os.environ.get('TURN_TIMEOUT_SECONDS', '').strip()
+    if not raw:
+        return DEFAULT_TURN_TIMEOUT
+    try:
+        timeout = float(raw)
+    except ValueError as exc:
+        raise ValueError(f'TURN_TIMEOUT_SECONDS must be a number, got {raw!r}') from exc
+    if timeout < 0:
+        raise ValueError('TURN_TIMEOUT_SECONDS must not be negative.')
+    return timeout or None
+
+
 class ChatBot:
 
-    def __init__(self, token):
-        self.application = ApplicationBuilder().token(token).build()
+    def __init__(self, token, request=None, turn_timeout=None, bot_pause=None):
+        builder = (
+            ApplicationBuilder()
+            .token(token)
+            # Each game has its own lock, so one table's bots never hold up another.
+            .concurrent_updates(True)
+            .post_init(self.post_init)
+            .post_stop(self.post_stop)
+        )
+        if request is not None:
+            builder = builder.request(request).get_updates_request(request)
+        self.application = builder.build()
         self.token = token
         self.chat_handler = ChatHandler(self.application.bot)
-        self.manager = GameManager(self.chat_handler)
+        manager_kwargs = {
+            'turn_timeout': _resolve_turn_timeout() if turn_timeout is None else turn_timeout,
+        }
+        if bot_pause is not None:
+            manager_kwargs['bot_pause'] = bot_pause
+        self.manager = GameManager(self.chat_handler, **manager_kwargs)
         self.cmd_utils = CommandUtils(self.manager, self.chat_handler)
+
+    async def post_init(self, application):
+        try:
+            await application.bot.set_my_commands(
+                [BotCommand(name, description) for name, description in BOT_COMMANDS]
+            )
+        except TelegramError as exc:
+            logger.warning('Could not register the bot command menu: %s', exc)
+
+    async def post_stop(self, application):
+        # Games live in memory, so tell every table before a restart wipes them.
+        chat_ids = self.manager.all_chat_ids()
+        if chat_ids:
+            logger.info('Sending restart notice to %s chats', len(chat_ids))
+            await self.chat_handler.notify_restart(chat_ids)
 
     async def error_callback(self, update, context):
         if isinstance(context.error, TimedOut):
@@ -126,10 +187,14 @@ class ChatBot:
         else:
             logger.exception('Unhandled Telegram error', exc_info=context.error)
 
-    def start(self, poll):
+    def register_handlers(self):
         self.init_command_handlers()
         self.init_regex_handlers()
+        self.application.add_handler(CallbackQueryHandler(self.cmd_utils.callback))
         self.application.add_error_handler(self.error_callback)
+
+    def start(self, poll):
+        self.register_handlers()
 
         if poll == 1:
             self.application.run_polling()
@@ -166,10 +231,15 @@ class ChatBot:
 
     def init_regex_handlers(self):
         bids, cards, partner_tokens = _build_input_regexes()
-        self.application.add_handler(MessageHandler(filters.Regex(bids), self.cmd_utils.bidding))
-        self.application.add_handler(MessageHandler(filters.Regex(cards), self.cmd_utils.card))
+        text = filters.TEXT & ~filters.COMMAND
         self.application.add_handler(
-            MessageHandler(filters.Regex(partner_tokens), self.cmd_utils.card)
+            MessageHandler(text & filters.Regex(bids), self.cmd_utils.bidding)
+        )
+        self.application.add_handler(
+            MessageHandler(text & filters.Regex(cards), self.cmd_utils.card)
+        )
+        self.application.add_handler(
+            MessageHandler(text & filters.Regex(partner_tokens), self.cmd_utils.card)
         )
 
     def init_command_handlers(self):

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from sgbridgebot.ChatBot import ChatBot
 import logging
 import os
 import sys
+
+from sgbridgebot.ChatBot import ChatBot
 
 '''
 sgbridgebot.py
@@ -25,7 +26,11 @@ def main():
 
     # provide TOKEN to initiate ChatBot
     token = os.environ.get('TELEGRAM_BOT_TOKEN')
-    bot = ChatBot(token)
+    try:
+        bot = ChatBot(token)
+    except ValueError as exc:
+        logging.error('Invalid configuration: %s', exc)
+        sys.exit(1)
 
     # Default to webhook for public web-service deployments.
     # For VM/always-on workers, set BOT_MODE=polling.
@@ -44,7 +49,7 @@ def main():
     elif mode == 'polling':
         bot.start(1)
     else:
-        raise ValueError("Invalid BOT_MODE '{}'. Expected 'webhook' or 'polling'.".format(mode))
+        raise ValueError(f"Invalid BOT_MODE '{mode}'. Expected 'webhook' or 'polling'.")
 
 
 
