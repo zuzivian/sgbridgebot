@@ -66,7 +66,11 @@ def _started_game(make_user, game_type=GameType.MATCHMAKING):
         })
         return SimpleNamespace(message_id=len(calls))
 
+    async def fake_remove_keyboard(chat_id, message_id):
+        calls.append({"removed": (chat_id, message_id)})
+
     handler.send_message = fake_send_message
+    handler.remove_keyboard = fake_remove_keyboard
     game = BridgeGame(handler, game_type)
     for i, name in enumerate(["_name](", None, "u3", "u4"]):
         user = User(id=i + 1, is_bot=False, first_name="A_[B<&" if name is None else "P", username=name)
@@ -108,10 +112,12 @@ def test_prompt_mentions_escape_html_and_use_tg_user_links(make_user):
     asyncio.run(handler.request_partner_choice(game.players[0], game))
     asyncio.run(handler.request_partner_choice(game.players[1], game))
 
-    assert calls[0]["message"].startswith("@_name](,")
-    assert calls[1]["message"].startswith('<a href="tg://user?id=2">A_[B&lt;&amp;</a>')
-    assert "Choose a suit first" in calls[1]["message"]
-    suit_data = [b.callback_data for b in _buttons(calls[1]["reply_markup"])]
+    sends = [call for call in calls if "message" in call]
+    assert calls[1] == {"removed": (1001, 1)}
+    assert sends[0]["message"].startswith("@_name](,")
+    assert sends[1]["message"].startswith('<a href="tg://user?id=2">A_[B&lt;&amp;</a>')
+    assert "Choose a suit first" in sends[1]["message"]
+    suit_data = [b.callback_data for b in _buttons(sends[1]["reply_markup"])]
     assert suit_data == [f"ps:{game.short_id}:{game.action_seq}:{s}" for s in range(4)]
 
 

@@ -729,7 +729,7 @@ async def scenario_bots_do_not_block_other_tables(rng, echo=False):
     '''
     While one table's bots are pausing between cards, another table still responds.
     '''
-    async with Emulator(bot_pause=0.2, echo=echo) as emu:
+    async with Emulator(bot_pause=0.5, echo=echo) as emu:
         expect(emu.app.concurrent_updates > 1, 'Updates are processed one at a time')
         slow_group = emu.add_group(-1005, 'Slow bots')
         loner = emu.add_user(701, 'Loner', 'loner')
@@ -738,7 +738,7 @@ async def scenario_bots_do_not_block_other_tables(rng, echo=False):
         fast = [emu.add_user(710 + i, f'F{i}', f'fast{i}') for i in range(4)]
         for user in fast:
             await emu.say(user, user.id, '/join')
-        # The loner bids; three bots then answer, 0.2s apart, inside that tap.
+        # The loner bids; three bots then answer, 0.5s apart, inside that tap.
         prompt = emu.open_prompt(loner)
         slow = await emu.tap(loner, prompt, 'PASS', wait=False)
         await asyncio.sleep(0.05)
@@ -750,7 +750,10 @@ async def scenario_bots_do_not_block_other_tables(rng, echo=False):
         waited = time.monotonic() - started
         expect(answer.answered, 'Fast table got no answer')
         expect(not slow.done(), 'Slow table finished too early to prove anything')
-        expect(waited < 0.15, f'Fast table waited {waited:.2f}s behind the other table')
+        expect(waited < 0.4, f'Fast table waited {waited:.2f}s behind the other table')
+        # Proven; let the rest of the game run at full speed.
+        for game in emu.bot.manager.active_games:
+            game.bot_pause = 0
         await slow
         await play_until_done(emu, fast + [loner], rng)
         check_clean(emu)

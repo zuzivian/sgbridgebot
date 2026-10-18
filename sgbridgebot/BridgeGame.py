@@ -22,7 +22,7 @@ MAX_REDEAL_ATTEMPTS = 200
 # A human who lets this many turns in a row time out is handed over to a bot.
 MAX_IDLE_STRIKES = 3
 
-SUIT_SYMBOLS = ['♣', '♦', '♥', '♠']
+SUIT_SYMBOLS = [BridgeCard.CARD_SUITS[suit] for suit in range(4)]
 
 logger = logging.getLogger(__name__)
 
