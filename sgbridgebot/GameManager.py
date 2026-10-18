@@ -1,7 +1,11 @@
-from sgbridgebot.BridgeGame import BridgeGame
-from sgbridgebot.game_types import GameType
+import asyncio
 
-class GameManager(object):
+from sgbridgebot.BridgeGame import BOT_PAUSE, BridgeGame
+from sgbridgebot.errors import AlreadyInGameError, NotInGameError
+from sgbridgebot.game_types import GameState, GameType
+
+
+class GameManager:
         """
         Manages all instances of waiting and active BridgeGame,
         Manages player and bot events
@@ -9,25 +13,33 @@ class GameManager(object):
         ATTRIBUTES
         waiting_games (listof BridgeGame)
         active_games (listof BridgeGame)
+        lock (asyncio.Lock): serialises lobby changes (join/leave/forcestart).
+            Always take it before a game's own lock, never after.
 
         ARGS
         create_game():
         destroy_game(uuid):
         end_game(uuid): removes game from active_games list
-        join_game(player): returns BridgeGame if player able to join, else error code
+        join_game(player): returns the BridgeGame joined, raises GameError otherwise
         find_game(player, chat_id):
-        leave_game(player): returns BridgeGame if player able to leave, else error code
+        leave_game(player): returns the BridgeGame left, raises NotInGameError otherwise
         update_gamelists(): when game state is changed, call to move games to appropriate lists
         """
 
         # Initial bot state contains empty game list
-        def __init__(self, handler):
+        def __init__(self, handler, turn_timeout=None, bot_pause=BOT_PAUSE):
             self.waiting_games = []
             self.active_games = []
             self.chat_handler = handler
+            self.turn_timeout = turn_timeout
+            self.bot_pause = bot_pause
+            self.lock = asyncio.Lock()
 
         def create_game(self, type, num_bots=0):
-            g = BridgeGame(self.chat_handler, type, num_bots, on_game_complete=self.end_game)
+            g = BridgeGame(
+                self.chat_handler, type, num_bots, on_game_complete=self.end_game,
+                turn_timeout=self.turn_timeout, bot_pause=self.bot_pause,
+            )
             self.waiting_games.append(g)
             return g
 
@@ -49,62 +61,107 @@ class GameManager(object):
                     self.active_games.remove(g)
 
         async def join_game(self, player, chat):
-            game_state = None
-            # don't allow joining if already in a game
-            game = self.find_game(player, chat.id)
-            if isinstance(game, BridgeGame):
-                return -2
-            # allow friends in group chat to join group game
-            if chat.type != 'private':
-                found = 0
-                for g in self.waiting_games:
-                    if chat.id in [p.chat_id for p in g.players] and g.type == GameType.PRIVATE:
-                        found = 1
-                        break
-                if not found:
-                    g = self.create_game(GameType.PRIVATE)
-                game_state = await g.add_player(player, chat.id)
-                self.update_gamelists()
-                return game_state
-            else: # join auto game
-                # add player to oldest waiting game
+            async with self.lock:
+                # don't allow joining if already in a game
+                if self.find_game(player, chat.id) is not None:
+                    raise AlreadyInGameError()
                 game = None
-                for g in self.waiting_games:
-                    if len(g.players) < 4 and g.type == GameType.PUBLIC:
-                        game = g
-                        break
-                if game is None:
-                    game = self.create_game(GameType.PUBLIC)
-                game_state = await game.add_player(player, chat.id)
-            self.update_gamelists()
-            if game_state is None:
-                return -1
-            else:
-                return game_state
+                if chat.type != 'private':
+                    # allow friends in group chat to join group game
+                    for g in self.waiting_games:
+                        if g.type == GameType.GROUP and chat.id in g.get_chat_ids():
+                            game = g
+                            break
+                    if game is None:
+                        game = self.create_game(GameType.GROUP)
+                else: # join auto game
+                    # add player to oldest waiting game
+                    for g in self.waiting_games:
+                        if len(g.players) < 4 and g.type == GameType.MATCHMAKING:
+                            game = g
+                            break
+                    if game is None:
+                        game = self.create_game(GameType.MATCHMAKING)
+                try:
+                    async with game.lock:
+                        await game.add_player(player, chat.id)
+                finally:
+                    self.update_gamelists()
+                return game
 
         def find_game(self, player, chat_id):
-            for g in self.waiting_games:
-                if player.id in [p.id for p in g.players] and chat_id in [p.chat_id for p in g.players]:
-                    return g
-            for g in self.active_games:
-                if player.id in [p.id for p in g.players] and chat_id in [p.chat_id for p in g.players]:
+            for g in self.waiting_games + self.active_games:
+                for p in g.players:
+                    if p.id == player.id and p.chat_id == chat_id:
+                        return g
+            return None
+
+        def find_game_for_user(self, user_id, chat_id, chat_type='private'):
+            '''
+            Finds the game a message from this user in this chat belongs to.
+            A private chat with the bot also reaches the user's group game.
+            '''
+            for g in self.waiting_games + self.active_games:
+                for p in g.players:
+                    if p.id == user_id and p.chat_id == chat_id:
+                        return g
+            if chat_type == 'private':
+                for g in self.active_games:
+                    if any(p.id == user_id for p in g.players):
+                        return g
+            return None
+
+        def find_game_by_short_id(self, short_id):
+            # A game is still in waiting_games while its first prompt goes out.
+            for g in self.waiting_games + self.active_games:
+                if g.short_id == short_id:
                     return g
             return None
 
-        def leave_game(self, player, chat_id):
-            for g in self.waiting_games:
-                for cid in [p.chat_id for p in g.players]:
-                    if chat_id == cid:
-                        game = g.remove_player(player, chat_id)
-                        self.update_gamelists()
-                        return game
-            for g in self.active_games:
-                for cid in [p.chat_id for p in g.players]:
-                    if chat_id == cid:
-                        game = g.remove_player(player, chat_id)
-                        self.update_gamelists()
-                        return game
-            return -1
+        def games_for_user(self, user_id):
+            return [
+                g for g in self.waiting_games + self.active_games
+                if any(p.id == user_id for p in g.players)
+            ]
+
+        async def leave_game(self, player, chat_id):
+            async with self.lock:
+                game = self.find_game(player, chat_id)
+                if game is None:
+                    raise NotInGameError()
+                try:
+                    async with game.lock:
+                        await game.remove_player(player, chat_id)
+                finally:
+                    self.update_gamelists()
+                return game
+
+        async def forcestart(self, player, chat_id):
+            '''
+            Fills the empty seats of the player's lobby with bots.
+            Returns the game, or None if it had already started.
+            '''
+            async with self.lock:
+                game = self.find_game(player, chat_id)
+                if game is None:
+                    raise NotInGameError('Please join the game first before starting one!')
+                if game.state != GameState.SETUP:
+                    return None
+                try:
+                    async with game.lock:
+                        while game.num_players() < 4:
+                            await game.add_bot()
+                finally:
+                    self.update_gamelists()
+                return game
+
+        def all_chat_ids(self):
+            chat_ids = []
+            for g in self.waiting_games + self.active_games:
+                for chat_id in g.get_chat_ids():
+                    if chat_id not in chat_ids:
+                        chat_ids.append(chat_id)
+            return chat_ids
 
         # scan list of games that need updating
         def update_gamelists(self):

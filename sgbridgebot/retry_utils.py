@@ -4,7 +4,6 @@ import random
 
 from telegram.error import TimedOut
 
-
 LOGGER = logging.getLogger(__name__)
 
 

@@ -9,6 +9,23 @@ Build numbers are included in the alpha stage of development, and will be droppe
 Canonical package version is defined in `sgbridgebot/__init__.py` as `__version__`, and release entries should match it.
 
 
+## 0.2.0-alpha
+Gameplay fixes, inline buttons and an emulator
++ Fixed a hang when a player holding only trumps had to lead before trump was broken
++ Fixed a hang when the player on turn left: the bot that takes their seat now moves
++ Added a turn timer (`TURN_TIMEOUT_SECONDS`, default 30s); 3 missed turns hand the seat to a bot
++ Fixed the live trick message being edited in the wrong chat after a player left
++ Bidding, partner call and card play now use inline buttons that show only legal choices;
+  group players get their hand and card buttons in a private chat
++ Stale and misdirected button taps are refused; bystanders' messages in groups get no reply
++ Mentions use `tg://user?id=` links and HTML escaping
++ Updates are processed concurrently with a lock per game, so bots no longer stall other tables
++ Tables are told when the bot restarts; a game with no humans left now stops
++ Lint and type checks cover the whole package
++ Lobby errors are exceptions instead of -1/-2 codes; `GameType` members renamed to
+  `MATCHMAKING` (private-chat matchmaking) and `GROUP` (group chat)
++ Added `sgbridgebot/emulator.py` to playtest the bot without Telegram
+
 ## 0.1.5-alpha
 Python runtime/tooling refresh
 + Standardized project Python targets on 3.13.8 across runtime, local tooling, and CI

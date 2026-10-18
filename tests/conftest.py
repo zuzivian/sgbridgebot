@@ -25,10 +25,13 @@ class MockChatHandler:
     async def ask_private_chat(self, game):
         self.events.append(("ask_private_chat", game.id))
 
-    async def display_hand(self, player):
+    async def display_hand_privately(self, player):
+        self.events.append(("display_hand_privately", player.id))
+
+    async def display_hand(self, player, chat_id=None):
         self.events.append(("display_hand", player.id))
 
-    async def request_bid(self, player):
+    async def request_bid(self, player, game):
         self.events.append(("request_bid", player.id))
 
     async def game_winners(self, result, winners, declarer_tricks, required_tricks, game):
@@ -55,14 +58,20 @@ class MockChatHandler:
     async def player_bid(self, bid, player, game):
         self.events.append(("player_bid", bid, player.id, game.id))
 
-    async def invalid_bid(self, player):
+    async def invalid_bid(self, player, game):
         self.events.append(("invalid_bid", player.id))
 
     async def bid_winner(self, player, contract, game):
         self.events.append(("bid_winner", player.id, contract, game.id))
 
-    async def request_partner_choice(self, player):
+    async def request_partner_choice(self, player, game):
         self.events.append(("request_partner_choice", player.id))
+
+    async def clear_prompt(self, game):
+        self.events.append(("clear_prompt", game.id))
+
+    async def player_timed_out(self, player, game, handed_over):
+        self.events.append(("player_timed_out", player.id, handed_over))
 
     async def partner_chosen(self, player, card_id, game):
         self.partner_payload = {

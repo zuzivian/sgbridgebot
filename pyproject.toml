@@ -15,16 +15,12 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.13"
-files = ["sgbridgebot/ChatBot.py", "sgbridgebot/ChatHandler.py", "sgbridgebot/BridgeGame.py", "sgbridgebot/CommandUtils.py"]
+files = ["sgbridgebot"]
 ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 check_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-ignore_errors = true
 
 [tool.sgbridgebot.compatibility]
 python = "3.13.x"

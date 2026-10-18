@@ -97,7 +97,8 @@ def test_resolve_webhook_secret_token_rejects_malformed(monkeypatch, secret):
 def _build_chatbot_with_mocked_app(monkeypatch):
     app = mock.Mock()
     builder = mock.Mock()
-    builder.token.return_value = builder
+    for method in ("token", "concurrent_updates", "post_init", "post_stop"):
+        getattr(builder, method).return_value = builder
     builder.build.return_value = app
     monkeypatch.setattr("sgbridgebot.ChatBot.ApplicationBuilder", mock.Mock(return_value=builder))
 

@@ -1,7 +1,7 @@
 A Telegram bot that allows users to play floating bridge, a variant of bridge
 that is commonly played in Singapore.
 
-#### Author: Nathaniel Wong | Version: 0.1.5-alpha
+#### Author: Nathaniel Wong | Version: 0.2.0-alpha
 
 Canonical version source: `sgbridgebot/__init__.py` (`__version__`).
 
@@ -90,16 +90,24 @@ BOT_MODE=polling python3 -m sgbridgebot.main
 
 # Features
 
-+ Game management system that is able to handle concurrent game sessions
-+ Players able to leave or join games at will
-+ Game starts when 4 players join a game lobby
-+ Game will proceed in turn-based fashion, with an idle timer of 30s
++ Game management system that is able to handle concurrent game sessions;
+  each table has its own lock, so one table's bots never hold up another
++ Players able to leave or join games at will; a bot takes over the seat of a
+  player who leaves mid-game, and play carries on
++ Game starts when 4 players join a game lobby, or `/forcestart` fills the
+  empty seats with bots
++ Turn timer (30s by default): if a player runs out of time a move is made for
+  them, and after 3 missed turns in a row a bot takes over their seat
 + Players will be dealt a hand of 13 cards at random
-+ Players will use buttons to select their bid or pass
-+ Players will be able to select a card (using buttons) to call a partner
-+ Players will use buttons to play a card when it is their turn
-+ Chatbot will only allow valid cards to be played
-+ Game ends when a partnership wins or a player leaves
++ Players tap inline buttons to bid, call a partner card (suit, then rank) and
+  play a card; only legal bids and cards are offered. Typed input such as
+  `1NT`, `SA` or `pass` still works
++ In group games, hands and card buttons go to each player's private chat with
+  the bot. Players who have not started a private chat get a selective keyboard
+  in the group instead
++ Stale or misdirected button taps are refused with a short popup
++ When the bot stops (a redeploy or platform restart), every table is told its
+  game has ended. Games are kept in memory only, so a crash still loses them
 + When game ends, players are kicked and are free to join a new game
 
 Please see the wiki for more information about the bot's planned features: https://github.com/zuzivian/sgbridgebot/wiki/
@@ -140,6 +148,7 @@ Before starting the bot in production, set the following environment variables:
   - Optional on Koyeb if `KOYEB_PUBLIC_DOMAIN` is present; the bot will auto-build `https://<KOYEB_PUBLIC_DOMAIN>`.
 - `TELEGRAM_WEBHOOK_SECRET`: Optional Telegram webhook secret token used to validate inbound webhook requests.
   - If set, it must be non-empty and must not contain leading/trailing whitespace.
+- `TURN_TIMEOUT_SECONDS`: Optional seconds each player has per turn. Defaults to `30`; `0` turns the timer off.
 
 The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_TOKEN>`.
 When `TELEGRAM_WEBHOOK_SECRET` is configured, startup passes it to Telegram via
@@ -183,6 +192,32 @@ Suggested setup path:
 3. Enable **Require status checks to pass before merging**.
 4. Select the two checks above.
 
+## Playtesting without Telegram (emulator)
+
+`sgbridgebot/emulator.py` plays the bot end to end with no Telegram account,
+token or network. A fake Bot API server plugs into python-telegram-bot as its
+HTTP layer, so the real application, handlers and keyboards run unchanged. The
+fake server keeps every message the bot sends and rejects what Telegram would
+reject: malformed HTML, oversized button data, messaging a user who never
+started the bot, and edits that change nothing.
+
+```bash
+# Run every scripted scenario (group, private-chat matchmaking, bots, idle
+# players, leaving on your turn, all-trump lead, two tables at once, restart)
+python -m sgbridgebot.emulator
+
+# Also play 25 random full games, with players tapping wrong and old buttons
+python -m sgbridgebot.emulator --games 25 --seed 3
+
+# Print the whole chat log
+python -m sgbridgebot.emulator --transcript
+
+# Play by hand: say alice group /join, tap alice 1NT, auto, ...
+python -m sgbridgebot.emulator --interactive
+```
+
+The scenarios also run in the test suite (`tests/test_emulator_playtest.py`).
+
 ## Local pre-commit quality checks
 
 Run the same quality gate used by CI before passing a commit:
@@ -191,4 +226,4 @@ Run the same quality gate used by CI before passing a commit:
 ./scripts/run_checks.sh
 ```
 
-This runs Ruff linting, mypy, and pytest in sequence.
+This runs Ruff linting and mypy over the whole package, then pytest.

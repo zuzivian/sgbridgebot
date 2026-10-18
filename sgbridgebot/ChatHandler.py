@@ -1,14 +1,35 @@
+import html
 import logging
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.error import BadRequest
-from telegram.helpers import escape_markdown
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
+from telegram.error import BadRequest, Forbidden
 
 from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.BridgeGame import MAX_IDLE_STRIKES
+from sgbridgebot.game_types import GameType
 from sgbridgebot.retry_utils import retry_on_timeout
 from sgbridgebot.StringUtils import StringUtils
 
 logger = logging.getLogger(__name__)
+
+HTML = 'HTML'
+RANKS_HIGH_TO_LOW = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2']
+
+
+def esc(text):
+    return html.escape(str(text), quote=False)
+
+
+def callback_data(action, game, *args):
+    '''
+    Builds button data as action:game:seq[:args]. Telegram allows 64 bytes.
+    '''
+    return ':'.join([action, game.short_id, str(game.action_seq), *[str(a) for a in args]])
 
 
 class ChatHandler:
@@ -52,6 +73,54 @@ class ChatHandler:
                 chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup
             )
 
+    async def remove_keyboard(self, chat_id, message_id):
+        try:
+            await retry_on_timeout(
+                'edit_message_reply_markup',
+                lambda: self.bot.edit_message_reply_markup(
+                    chat_id=chat_id, message_id=message_id, reply_markup=None
+                ),
+                chat_id=chat_id,
+                message_id=message_id,
+            )
+        except BadRequest as exc:
+            # Already removed, or the message is gone. Nothing left to tidy.
+            logger.debug('Could not remove keyboard: %s', exc)
+
+    def _bot_username(self):
+        try:
+            return self.bot.username
+        except (AttributeError, RuntimeError):
+            return 'sgbridgebot'
+
+    def mention(self, player):
+        '''
+        HTML mention of a player. Mentions make selective keyboards target them.
+        '''
+        if player.is_bot or player.id <= 0:
+            return esc(player.disp_name())
+        if player.username:
+            return '@' + esc(player.username)
+        return f'<a href="tg://user?id={player.id}">{esc(player.first_name)}</a>'
+
+    async def _send_prompt(self, game, chat_id, text, reply_markup):
+        await self.clear_prompt(game)
+        msg = await self.send_message(chat_id, text, parse_mode=HTML, reply_markup=reply_markup)
+        message_id = getattr(msg, 'message_id', None)
+        if message_id is not None:
+            game.last_prompt = (chat_id, message_id)
+        return msg
+
+    async def clear_prompt(self, game):
+        '''
+        Removes the buttons from the game's open prompt, if any.
+        '''
+        if getattr(game, 'last_prompt', None) is None:
+            return
+        chat_id, message_id = game.last_prompt
+        game.last_prompt = None
+        await self.remove_keyboard(chat_id, message_id)
+
     async def player_joined_game(self, player, game):
         for chat_id in game.get_chat_ids():
             await self.send_message(chat_id, self.str_utils.joined_game(player, game))
@@ -66,6 +135,18 @@ class ChatHandler:
         elif player.chat_id is not None:
             await self.send_message(player.chat_id, self.str_utils.cards_in_hand(player))
 
+    async def display_hand_privately(self, player):
+        '''
+        Sends a group-game player their hand in a private chat, if they started one.
+        '''
+        if player.dm_blocked:
+            return
+        try:
+            await self.send_message(player.id, self.str_utils.cards_in_hand(player))
+        except (Forbidden, BadRequest) as exc:
+            logger.info('Cannot reach player %s privately (%s)', player.id, exc)
+            player.dm_blocked = True
+
     async def starting_game(self, game):
         for chat_id in game.get_chat_ids():
             await self.send_message(chat_id, 'Room is full! Starting game...')
@@ -76,8 +157,9 @@ class ChatHandler:
                 chat_id,
                 (
                     "I've dealt your cards already!\n"
-                    'Open a private chat with @sgbridgebot and type /hand '
-                    'to see your cards.\n'
+                    f'Open a private chat with @{self._bot_username()} and press Start. '
+                    "I'll send your cards there when it's your turn, "
+                    'and /hand there shows them any time.\n'
                     'Hands are private to prevent accidental table leaks.'
                 ),
             )
@@ -86,27 +168,35 @@ class ChatHandler:
         players = ', '.join([p.disp_name() for p in game.players])
         await self.send_message(chat_id, 'For game with players ' + players + ':')
 
-    def _safe_display_name_for_markdown(self, player):
-        if player.username is not None:
-            safe_username = escape_markdown(player.username, version=1)
-            return '@' + safe_username
+    '''
+    BIDDING
+    '''
 
-        safe_first_name = escape_markdown(player.first_name, version=1)
-        return '[' + safe_first_name + '](mention:' + str(player.id) + ')'
+    def bid_markup(self, game):
+        rows = [[InlineKeyboardButton('PASS', callback_data=callback_data('b', game, -1))]]
+        for level in range(7):
+            row = []
+            for suit in range(5):
+                bid = level * 5 + suit
+                if bid > game.contract:
+                    row.append(InlineKeyboardButton(
+                        self.str_utils.bid_id_to_str(bid),
+                        callback_data=callback_data('b', game, bid),
+                    ))
+            if row:
+                rows.append(row)
+        return InlineKeyboardMarkup(rows)
 
-    async def request_bid(self, player):
-        keyboard = [['PASS']]
-        suits = ['\U00002663', '\U00002666', '\U00002764', '\U00002660', 'NT']
-        for x in range(7):
-            keyboard.append([])
-            for y in range(5):
-                keyboard[x + 1].append(str(x + 1) + suits[y])
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-        await self.send_message(
-            player.chat_id,
-            player.disp_name() + ', choose your bid.\nExamples: 1NT, 1♣, 1C, PASS',
-            reply_markup=reply_markup,
+    async def request_bid(self, player, game):
+        contract = (
+            self.str_utils.bid_id_to_str(game.contract) if game.contract >= 0 else 'none yet'
         )
+        text = (
+            f'{self.mention(player)}, your bid.\n'
+            f'🎯 Highest bid: {esc(contract)}\n'
+            'Tap a bid, or type one (1NT, 1C, PASS).'
+        )
+        await self._send_prompt(game, player.chat_id, text, self.bid_markup(game))
 
     async def player_passed(self, player, game):
         for chat_id in game.get_chat_ids():
@@ -118,9 +208,9 @@ class ChatHandler:
                 chat_id, player.disp_name() + ' bid ' + self.str_utils.bid_id_to_str(bid)
             )
 
-    async def invalid_bid(self, player):
+    async def invalid_bid(self, player, game):
         await self.send_message(player.chat_id, 'Invalid bid!')
-        await self.request_bid(player)
+        await self.request_bid(player, game)
 
     async def bid_winner(self, player, bid, game):
         bid_str = self.str_utils.bid_id_to_str(bid)
@@ -131,25 +221,57 @@ class ChatHandler:
                 reply_markup=ReplyKeyboardRemove(),
             )
 
-    async def request_partner_choice(self, player):
-        keyboard = [[suit for suit in self.str_utils.suit_str], ['C', 'D', 'H', 'S']]
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
-        disp_name = self._safe_display_name_for_markdown(player)
-        await self.send_message(
-            player.chat_id,
-            disp_name
-            + ', please select a partner card: choose suit first (♣/♦/♥/♠ or C/D/H/S).',
-            parse_mode='Markdown',
-            reply_markup=reply_markup,
+    '''
+    PARTNER CALL
+    '''
+
+    def partner_suit_markup(self, game):
+        return InlineKeyboardMarkup([[
+            InlineKeyboardButton(symbol, callback_data=callback_data('ps', game, suit))
+            for suit, symbol in enumerate(self.str_utils.suit_str)
+        ]])
+
+    def partner_rank_markup(self, game, suit):
+        buttons = [
+            InlineKeyboardButton(
+                self.str_utils.suit_str[suit] + rank,
+                callback_data=callback_data(
+                    'pc', game, self.str_utils.card_str_to_id(self.str_utils.suit_str[suit] + rank)
+                ),
+            )
+            for rank in RANKS_HIGH_TO_LOW
+        ]
+        rows = [buttons[0:5], buttons[5:9], buttons[9:13]]
+        back = InlineKeyboardButton('« Back to suits', callback_data=callback_data('pb', game))
+        rows.append([back])
+        return InlineKeyboardMarkup(rows)
+
+    def partner_suit_prompt_text(self, player, game):
+        bid_str = self.str_utils.bid_id_to_str(game.contract)
+        return (
+            f'{self.mention(player)}, you won the auction with {esc(bid_str)}.\n'
+            'Call your partner card: whoever holds it is your partner.\n'
+            'Choose a suit first (or type ♣/♦/♥/♠ or C/D/H/S).'
         )
 
-    async def request_partner_rank(self, player, suit_symbol):
-        keyboard = [['A', 'K', 'Q', 'J', '10'], ['9', '8', '7', '6', '5', '4', '3', '2']]
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
-        await self.send_message(
+    def partner_rank_prompt_text(self, player, suit):
+        symbol = self.str_utils.suit_str[suit]
+        return f'{self.mention(player)}, now choose a rank for {symbol}.'
+
+    async def request_partner_choice(self, player, game):
+        await self._send_prompt(
+            game,
             player.chat_id,
-            f'Great. Now choose a rank for {suit_symbol} (A, K, Q, J, 10-2).',
-            reply_markup=reply_markup,
+            self.partner_suit_prompt_text(player, game),
+            self.partner_suit_markup(game),
+        )
+
+    async def request_partner_rank(self, player, game, suit):
+        await self._send_prompt(
+            game,
+            player.chat_id,
+            self.partner_rank_prompt_text(player, suit),
+            self.partner_rank_markup(game, suit),
         )
 
     async def partner_chosen(self, player, card_id, game):
@@ -160,7 +282,74 @@ class ChatHandler:
                 player.disp_name() + ' calls ' + repr(card) + ' as the partner card.',
             )
 
+    '''
+    CARD PLAY
+    '''
+
+    def _table_status(self, game):
+        lines = [
+            '🎯 Contract: ' + esc(self.str_utils.bid_id_to_str(game.contract))
+            + ' by ' + esc(game.declarer.disp_name()),
+            '🤝 Partner card: ' + esc(repr(game.partner_card)),
+        ]
+        if game.trick:
+            played = ', '.join(
+                f'{c!r} {esc(game.players[(game.trick_start + i) % 4].disp_name())}'
+                for i, c in enumerate(game.trick)
+            )
+            lines.append('🃏 Trick so far: ' + played)
+        else:
+            lines.append('🃏 You lead this trick.')
+        return '\n'.join(lines)
+
+    def card_markup(self, game, player):
+        buttons_by_suit: dict[int, list[InlineKeyboardButton]] = {}
+        for card in game.legal_card_objects(player):
+            buttons_by_suit.setdefault(card.suit, []).append(
+                InlineKeyboardButton(repr(card), callback_data=callback_data('c', game, card.id))
+            )
+        rows = []
+        for suit in sorted(buttons_by_suit):
+            buttons = buttons_by_suit[suit]
+            for start in range(0, len(buttons), 7):
+                rows.append(buttons[start:start + 7])
+        return InlineKeyboardMarkup(rows)
+
+    def card_prompt_text(self, player, game):
+        return (
+            f'{self.mention(player)}, your turn to play.\n'
+            + self._table_status(game)
+            + '\n\n'
+            + esc(self.str_utils.cards_in_hand(player)).rstrip()
+            + '\n\nTap a card (only legal cards are shown).'
+        )
+
     async def request_card(self, player, game):
+        if game.type == GameType.GROUP and not getattr(player, 'dm_blocked', False):
+            # Group chats can see inline buttons, so the hand goes to a private chat.
+            try:
+                await self._send_prompt(
+                    game, player.id, self.card_prompt_text(player, game),
+                    self.card_markup(game, player),
+                )
+                return
+            except (Forbidden, BadRequest) as exc:
+                logger.info('Cannot reach player %s privately (%s); using group keyboard',
+                            player.id, exc)
+                player.dm_blocked = True
+        if game.type == GameType.GROUP:
+            await self._request_card_in_group(player, game)
+            return
+        await self._send_prompt(
+            game, player.chat_id, self.card_prompt_text(player, game),
+            self.card_markup(game, player),
+        )
+
+    async def _request_card_in_group(self, player, game):
+        '''
+        Fallback for players who never opened a private chat with the bot: a
+        selective reply keyboard that only the mentioned player can see.
+        '''
         gameinfo = 'Contract: ' + self.str_utils.bid_id_to_str(game.contract)
         gameinfo += ' | Declarer: ' + game.declarer.disp_name()
         gameinfo += ' | Partner: ' + repr(game.partner_card)
@@ -175,26 +364,19 @@ class ChatHandler:
                 else:
                     keyboard[-1].append(' ')
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, selective=True)
-        disp_name = self._safe_display_name_for_markdown(player)
         status_message = (
-            disp_name
-            + ', you are up now.\n🎯 Contract: '
-            + self.str_utils.bid_id_to_str(game.contract)
-            + '\n👤 Declarer: '
-            + game.declarer.disp_name()
-            + '\n🤝 Partner card: '
-            + repr(game.partner_card)
-            + '\nplease choose a card to play.'
+            self.mention(player) + ', you are up now.\n'
+            + self._table_status(game)
+            + '\nPlease choose a card to play. Start a private chat with '
+            + f'@{self._bot_username()} to see your hand there instead.'
         )
+        await self.clear_prompt(game)
         await self.send_message(
-            player.chat_id,
-            status_message,
-            parse_mode='Markdown',
-            reply_markup=reply_markup,
+            player.chat_id, status_message, parse_mode=HTML, reply_markup=reply_markup,
         )
 
     async def card_played(self, player, card, game):
-        message = '🃏 Current trick\n\n'
+        message = f'🃏 Trick {game.tricks_played + 1}\n\n'
         for i in range(len(game.trick)):
             played_card = game.trick[i]
             player_num = (game.trick_start + i) % 4
@@ -204,22 +386,52 @@ class ChatHandler:
                 + game.players[player_num].disp_name()
                 + '\n'
             )
-        if game.trick_message == []:
-            for chat_id in game.get_chat_ids():
+        if len(game.trick) < 4:
+            waiting_for = game.players[(game.trick_start + len(game.trick)) % 4]
+            message += '\n⏳ Waiting for ' + waiting_for.disp_name()
+        for chat_id in game.get_chat_ids():
+            message_id = game.trick_message.get(chat_id)
+            if message_id is None:
                 msg = await self.send_message(chat_id, message)
-                game.trick_message.append(msg.message_id)
-        else:
-            for i in range(len(game.get_chat_ids())):
-                chat_id = game.get_chat_ids()[i]
-                await self.edit_message_text(message, chat_id, game.trick_message[i])
+                game.trick_message[chat_id] = msg.message_id
+            else:
+                await self.edit_message_text(message, chat_id, message_id)
 
     async def announce_trick(self, player, card, game):
         message = (
             '🏆 ' + player.disp_name() + ' won the trick with ' + repr(card) + '.\n\nTricks won:\n'
         )
         message += ',  '.join([p.disp_name() + ': ' + str(p.tricks_won) for p in game.players])
+        if game.tricks_played < 12:
+            message += '\n\n▶️ ' + player.disp_name() + ' leads next.'
         for chat_id in game.get_chat_ids():
             await self.send_message(chat_id, message)
+
+    '''
+    GAME LIFECYCLE
+    '''
+
+    async def player_timed_out(self, player, game, handed_over):
+        if handed_over:
+            message = (
+                f'⏰ {player.disp_name()} missed {MAX_IDLE_STRIKES} turns in a row, '
+                'so a bot takes over their seat.'
+            )
+        else:
+            message = f'⏰ {player.disp_name()} ran out of time, so a move was made for them.'
+        for chat_id in game.get_chat_ids():
+            await self.send_message(chat_id, message)
+
+    async def notify_restart(self, chat_ids):
+        for chat_id in chat_ids:
+            try:
+                await self.send_message(
+                    chat_id,
+                    '⚠️ sgBridgeBot is restarting, so this game has ended. '
+                    'Type /join to start a new one.',
+                )
+            except Exception:
+                logger.exception('Could not send restart notice to chat %s', chat_id)
 
     async def game_winners(self, team, winners, bid, req, game):
         declarers = [game.declarer.disp_name()]

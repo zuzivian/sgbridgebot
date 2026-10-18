@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 
 import unicodedata
 
 
-class StringUtils(object):
+class StringUtils:
 
     '''
     '''
@@ -35,13 +34,13 @@ class StringUtils(object):
     def players_in_room(self, game):
         players_needed = 4 - game.num_players()
         readiness = (
-            f'Ready to start!\n' if players_needed == 0
+            'Ready to start!\n' if players_needed == 0
             else f'Waiting for {players_needed} more player(s).\n'
         )
-        return '{}Number of players: {}/4\nPlayers in the room: {}'.format(
-            readiness,
-            game.num_players(),
-            self.player_listing(game))
+        return (
+            f'{readiness}Number of players: {game.num_players()}/4\n'
+            f'Players in the room: {self.player_listing(game)}'
+        )
 
     def normalize_suit_token(self, token):
         normalized = unicodedata.normalize(
@@ -62,12 +61,12 @@ class StringUtils(object):
         return None
 
     def joined_game(self, player, game):
-        join_remark = '{} joined the game.'.format(self.player_name(player))
+        join_remark = f'{self.player_name(player)} joined the game.'
         room_players = self.players_in_room(game)
         return join_remark + '\n\n' + room_players
 
     def left_game(self, player, game):
-        leave_remark = '{} left the game.'.format(self.player_name(player))
+        leave_remark = f'{self.player_name(player)} left the game.'
         room_players = self.players_in_room(game)
         return leave_remark + '\n\n' + room_players
 

@@ -1,13 +1,16 @@
 import logging
 import asyncio
 
+import pytest
+
 from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import BridgeGame, MAX_REDEAL_ATTEMPTS
+from sgbridgebot.BridgeGame import BridgeGame, MAX_IDLE_STRIKES, MAX_REDEAL_ATTEMPTS
+from sgbridgebot.errors import AlreadyInGameError, InvalidPlayError
 from sgbridgebot.game_types import GameState, GameType
 
 
 async def _build_started_game(mock_handler, make_user):
-    game = BridgeGame(mock_handler, type=GameType.PUBLIC)
+    game = BridgeGame(mock_handler, type=GameType.MATCHMAKING)
     for i in range(4):
         state = await game.add_player(make_user(i + 1, username=f"u{i+1}"), 100 + i)
         assert state is game
@@ -15,15 +18,15 @@ async def _build_started_game(mock_handler, make_user):
 
 
 def test_player_join_leave_lifecycle(mock_handler, make_user):
-    game = BridgeGame(mock_handler, type=GameType.PUBLIC)
+    game = BridgeGame(mock_handler, type=GameType.MATCHMAKING)
 
     asyncio.run(game.add_player(make_user(1, username="u1"), 101))
     assert game.num_players() == 1
 
-    duplicate = asyncio.run(game.add_player(make_user(1, username="u1"), 101))
-    assert duplicate == -2
+    with pytest.raises(AlreadyInGameError):
+        asyncio.run(game.add_player(make_user(1, username="u1"), 101))
 
-    game.remove_player(make_user(1, username="u1"), 101)
+    asyncio.run(game.remove_player(make_user(1, username="u1"), 101))
     assert game.num_players() == 0
 
 
@@ -38,7 +41,7 @@ def test_transition_from_lobby_to_started_game(mock_handler, make_user):
 
 
 def test_valid_play_rules(mock_handler, make_user):
-    game = BridgeGame(mock_handler, type=GameType.PUBLIC)
+    game = BridgeGame(mock_handler, type=GameType.MATCHMAKING)
     game.players = [
         type("P", (), {"id": 1, "hand": [BridgeCard(13), BridgeCard(0)], "get_all_suit": lambda self, s: [c for c in self.hand if c.suit == s]})(),
         type("P", (), {"id": 2, "hand": [], "get_all_suit": lambda self, s: []})(),
@@ -241,3 +244,108 @@ def test_start_game_deals_once_when_no_wash(mock_handler, make_user, monkeypatch
     assert deal_counter["count"] == 1
     assert game.state == GameState.AUCTION
     assert game.turn == 0
+
+
+def _rig_play_state(game, hand, trump_suit=3):
+    game.state = GameState.PLAY
+    game.contract = trump_suit  # level 1 in the trump suit
+    game.declarer = game.players[1]
+    game.partner = game.players[2]
+    game.partner_card = BridgeCard(0)
+    game.turn = 0
+    game.trick = []
+    game.trick_start = 0
+    game.trump_broken = 0
+    game.players[0].hand = hand
+
+
+def test_all_trump_hand_may_lead_trump_before_it_is_broken(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    _rig_play_state(game, [BridgeCard(39 + r) for r in range(5)])  # five spades
+
+    is_valid, reason, legal = game.valid_play_details(BridgeCard(39))
+
+    assert is_valid is True and reason is None
+    assert game.legal_cards(game.players[0]) == [repr(c) for c in game.players[0].hand]
+
+    asyncio.run(game.play_card(game.players[0], 39))
+    assert game.trump_broken == 1
+    assert [c.id for c in game.trick] == [39]
+
+
+def test_trump_lead_still_refused_when_hand_has_other_suits(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    _rig_play_state(game, [BridgeCard(39), BridgeCard(13)])
+
+    with pytest.raises(InvalidPlayError) as exc_info:
+        game.validate_card(game.players[0], 39)
+
+    assert "not broken" in str(exc_info.value)
+    assert exc_info.value.legal_cards == ["♦2"]
+
+
+def test_removing_player_on_turn_lets_replacement_bot_act(mock_handler, make_user):
+    async def scenario():
+        game = await _build_started_game(mock_handler, make_user)
+        seq = game.action_seq
+        await game.remove_player(make_user(1, username="u1"), 100)
+        return game, seq
+
+    game, seq = asyncio.run(scenario())
+    assert game.players[0].is_bot
+    assert game.action_seq > seq
+    assert not game.curr_player().is_bot
+    assert sum(1 for evt in mock_handler.events if evt[0] == "request_bid") == 2
+
+
+def test_last_human_leaving_abandons_game(mock_handler, make_user):
+    finished = []
+
+    async def scenario():
+        game = BridgeGame(mock_handler, GameType.MATCHMAKING, on_game_complete=finished.append)
+        await game.add_player(make_user(1, username="u1"), 100)
+        for _ in range(3):
+            await game.add_bot()
+        await game.remove_player(make_user(1, username="u1"), 100)
+        return game
+
+    game = asyncio.run(scenario())
+    assert game.state == GameState.SCORING
+    assert finished == [game.id]
+
+
+def test_idle_player_is_auto_played_then_handed_to_a_bot(mock_handler, make_user):
+    async def scenario():
+        game = BridgeGame(mock_handler, GameType.MATCHMAKING, turn_timeout=0.01, bot_pause=0)
+        for i in range(4):
+            await game.add_player(make_user(i + 1, username=f"u{i+1}"), 100 + i)
+        for _ in range(200):
+            if game.players[0].is_bot or not game.is_in_progress():
+                break
+            await asyncio.sleep(0.01)
+        game._cancel_idle_timer()
+        return game
+
+    game = asyncio.run(scenario())
+    timeouts = [evt for evt in mock_handler.events if evt[0] == "player_timed_out"]
+    first_seat = [evt for evt in timeouts if evt[1] == 1]
+    assert [evt[2] for evt in first_seat][:MAX_IDLE_STRIKES] == [False] * (MAX_IDLE_STRIKES - 1) + [True]
+    assert game.players[0].is_bot
+
+
+def test_stale_idle_timer_does_nothing_after_player_acts(mock_handler, make_user):
+    async def scenario():
+        game = BridgeGame(mock_handler, GameType.MATCHMAKING, turn_timeout=0.05, bot_pause=0)
+        for i in range(4):
+            await game.add_player(make_user(i + 1, username=f"u{i+1}"), 100 + i)
+        stale_seq = game.action_seq
+        async with game.lock:
+            await game.make_bid(game.players[0], 0)
+        game._cancel_idle_timer()
+        # A timer armed before the bid wakes up late: it must see the turn moved on.
+        await game._idle_timeout(stale_seq)
+        return game
+
+    game = asyncio.run(scenario())
+    assert not [evt for evt in mock_handler.events if evt[0] == "player_timed_out"]
+    assert game.contract == 0
