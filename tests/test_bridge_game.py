@@ -349,3 +349,50 @@ def test_stale_idle_timer_does_nothing_after_player_acts(mock_handler, make_user
     game = asyncio.run(scenario())
     assert not [evt for evt in mock_handler.events if evt[0] == "player_timed_out"]
     assert game.contract == 0
+
+
+def _seated_game(mock_handler, make_user):
+    game = asyncio.run(_build_started_game(mock_handler, make_user))
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.partner_card = game.players[2].hand[0]
+    return game
+
+
+def test_known_teammate_before_partner_is_revealed(mock_handler, make_user):
+    game = _seated_game(mock_handler, make_user)
+    north, east, south, west = game.players
+
+    # The partner holds the card, so they know every side.
+    assert game.known_teammate(south, north) is True
+    assert game.known_teammate(south, east) is False
+    # Everyone knows who the declarer is.
+    assert game.known_teammate(east, north) is False
+    # The declarer and the defenders cannot tell yet.
+    assert game.known_teammate(north, south) is None
+    assert game.known_teammate(east, west) is None
+
+
+def test_known_teammate_after_partner_card_is_played(mock_handler, make_user):
+    game = _seated_game(mock_handler, make_user)
+    north, east, south, west = game.players
+    game.state = GameState.PLAY
+    game.trick_start = 2
+    game.turn = 2
+    card = game.partner_card
+    south.remove_card(card)
+
+    asyncio.run(game._commit_card(south, card))
+
+    assert game.partner_revealed is True
+    assert game.known_teammate(north, south) is True
+    assert game.known_teammate(east, west) is True
+    assert game.known_teammate(west, south) is False
+
+
+def test_declarer_who_calls_own_card_knows_everyone_else_is_against_them(mock_handler, make_user):
+    game = _seated_game(mock_handler, make_user)
+    north, east, _, _ = game.players
+    game.partner = north
+
+    assert game.known_teammate(north, east) is False

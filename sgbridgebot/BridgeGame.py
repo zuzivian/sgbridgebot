@@ -66,6 +66,7 @@ class BridgeGame:
         self.partner_card = None
         self.partner = None
         self.partner_suit_choice = None
+        self.partner_revealed = False
         self.trick = []
         self.trick_start = None
         self.trick_message = {}  # chat_id -> message_id of the live trick message
@@ -349,6 +350,29 @@ class BridgeGame:
             await self.get_next_card()
         return
 
+    def is_declarer_side(self, player):
+        return player is self.declarer or player is self.partner
+
+    def known_teammate(self, viewer, other):
+        '''
+        What `viewer` can know about `other` during play: True if they are on
+        the same side, False if not, None while the partner is still hidden.
+        Everyone knows their own side; the partner's side is public once the
+        partner card is played, and the partner knows it from the start.
+        '''
+        if viewer is other:
+            return True
+        same_side = self.is_declarer_side(viewer) == self.is_declarer_side(other)
+        if self.partner_revealed or other is self.declarer:
+            return same_side
+        if viewer is self.partner:
+            # The partner holds the card, so it can tell everyone's side.
+            return same_side
+        if viewer is self.declarer and self.partner is self.declarer:
+            # Calling a card of your own means the other three are all against you.
+            return False
+        return None
+
     def player_holding_card(self, card_id):
         for p in self.players:
             for card in p.hand:
@@ -400,7 +424,7 @@ class BridgeGame:
         if self.state == GameState.AUCTION:
             await self.process_bid(-1)
         elif self.state == GameState.PARTNER_CALL:
-            await self.choose_partner(player.make_auto_partner())
+            await self.choose_partner(player.make_auto_partner(self.get_trump_suit()))
         elif self.state == GameState.PLAY:
             await self._commit_card(player, player.play_auto_card(self.trick, self))
 
@@ -482,7 +506,9 @@ class BridgeGame:
 
     async def get_partner_choice(self):
         if self.curr_player().is_bot:
-            await self.choose_partner(self.curr_player().make_auto_partner())
+            await self.choose_partner(
+                self.curr_player().make_auto_partner(self.get_trump_suit())
+            )
             return
         else:
             # request partner choice
@@ -570,6 +596,8 @@ class BridgeGame:
         self.trick.append(card)
         if card.suit == self.get_trump_suit():
             self.trump_broken = 1
+        if self.partner_card is not None and card.id == self.partner_card.id:
+            self.partner_revealed = True
         await self.chat_handler.card_played(player, card, self)
         await self.next_turn()
 
