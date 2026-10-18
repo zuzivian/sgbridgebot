@@ -41,7 +41,8 @@ def _build_input_regexes():
     bids = r'^(PASS|pass|(1|2|3|4|5|6|7)(' + '|'.join(bid_suits) + r'))$'
     cards = r'^(' + '|'.join(card_suits) + r')(' + '|'.join(card_ranks) + r')$'
     partner_tokens = r'^(' + '|'.join(card_suits + card_ranks) + r')$'
-    return bids, cards, partner_tokens
+    wash = r'^(?i:wash)$'
+    return bids, cards, partner_tokens, wash
 
 
 def _mask_token(token):
@@ -230,7 +231,7 @@ class ChatBot:
                 ) from exc
 
     def init_regex_handlers(self):
-        bids, cards, partner_tokens = _build_input_regexes()
+        bids, cards, partner_tokens, wash = _build_input_regexes()
         text = filters.TEXT & ~filters.COMMAND
         self.application.add_handler(
             MessageHandler(text & filters.Regex(bids), self.cmd_utils.bidding)
@@ -240,6 +241,9 @@ class ChatBot:
         )
         self.application.add_handler(
             MessageHandler(text & filters.Regex(partner_tokens), self.cmd_utils.card)
+        )
+        self.application.add_handler(
+            MessageHandler(text & filters.Regex(wash), self.cmd_utils.wash)
         )
 
     def init_command_handlers(self):

@@ -18,7 +18,8 @@ from sgbridgebot.game_types import IN_PROGRESS_STATES, GameState, GameType
 from sgbridgebot.StringUtils import StringUtils
 
 BOT_PAUSE = 0.5
-MAX_REDEAL_ATTEMPTS = 200
+# A player whose hand is worth this many points or fewer may call a wash (redeal).
+WASH_MAX_POINTS = 4
 # A human who lets this many turns in a row time out is handed over to a bot.
 MAX_IDLE_STRIKES = 3
 
@@ -73,6 +74,14 @@ class BridgeGame:
         self.tricks_played = 0
         self.trump_broken = 0
         self.trick_history = []
+        self.auction_log = []  # (player name, bid id or -1 for pass)
+        self.auction_acted = set()  # ids of players who bid or passed this deal
+        # Running score for a table that keeps dealing again: user id -> hands won.
+        self.match_scores = {}
+        self.match_names = {}
+        self.hands_played = 0
+        self.final_players = []  # seats as they were when the hand ended
+        self.result = None  # (team, declarer tricks, required tricks) once scored
         self.action_seq = 0
         self.last_prompt = None  # (chat_id, message_id) of the open inline prompt
         self.idle_strikes = {}
@@ -227,61 +236,73 @@ class BridgeGame:
         for p in self.players:
             p.give_direction(dirs)
             dirs += 1
-        # Deal cards and ensure there is no wash.
-        wash = True
-        redeal_attempts = 0
-        while wash:
-            wash = False
-            redeal_attempts += 1
-            self.deal_hands()
-            for p in self.players:
-                if p.hand_score(p.hand) < 4:
-                    wash = True
-            if wash and redeal_attempts >= MAX_REDEAL_ATTEMPTS:
-                logger.error(
-                    "Redeal attempt limit exceeded: game_id=%s, attempts=%s",
-                    self.id,
-                    redeal_attempts,
-                )
-                logger.warning(
-                    "Accepting latest deal after redeal limit reached; wash condition remains: "
-                    "game_id=%s",
-                    self.id,
-                )
-                wash = False
+        self.deal_hands()
+        self._reset_auction()
         await self.show_hands()
+        await self.get_next_bid()
+        return
+
+    def _reset_auction(self):
         self.turn = 0
         self.contract = -1
         self.consecutive_passes = 0
         self.declarer = self.curr_player()
+        self.auction_log = []
+        self.auction_acted = set()
+
+    async def _redeal(self):
+        '''
+        Deals fresh hands and restarts the auction from North.
+        '''
+        self.action_seq += 1
+        self._cancel_idle_timer()
+        self.deal_hands()
+        self._reset_auction()
+        await self.show_hands()
         await self.get_next_bid()
-        return
+
+    def tricks_required(self):
+        return 7 + self.contract // 5
+
+    def declarer_side_tricks(self):
+        if self.declarer is None or self.partner is None:
+            return 0
+        if self.declarer is self.partner:
+            return self.declarer.tricks_won
+        return self.declarer.tricks_won + self.partner.tricks_won
+
+    def defender_side_tricks(self):
+        return sum(p.tricks_won for p in self.players if not self.is_declarer_side(p))
+
+    def _record_match_result(self, winners):
+        self.hands_played += 1
+        for p in self.players:
+            if p.is_bot:
+                continue
+            self.match_names[p.id] = p.disp_name()
+            self.match_scores.setdefault(p.id, 0)
+            if p in winners:
+                self.match_scores[p.id] += 1
 
     async def end_game(self):
         self.state = GameState.SCORING
         self._cancel_idle_timer()
-        required_tricks = 7 + self.contract//5
+        required_tricks = self.tricks_required()
         assert self.declarer is not None
         assert self.partner is not None
-        declarer_tricks = self.declarer.tricks_won + self.partner.tricks_won
-        declarers = [self.declarer, self.partner]
-        if self.declarer == self.partner:
-            declarer_tricks //= 2
-            declarers.remove(self.partner)
-        if (declarer_tricks >= required_tricks):
-            # declarer and partner won the game
-            await self.chat_handler.game_winners(
-                0, declarers, declarer_tricks, required_tricks, self
-            )
+        declarer_tricks = self.declarer_side_tricks()
+        declarers = [p for p in self.players if self.is_declarer_side(p)]
+        if declarer_tricks >= required_tricks:
+            team, winners = 0, declarers
         else:
-            winning_team = list(self.players)
-            winning_team.remove(self.declarer)
-            if self.declarer != self.partner:
-                winning_team.remove(self.partner)
-            await self.chat_handler.game_winners(
-                1, winning_team, declarer_tricks, required_tricks, self
-            )
+            team, winners = 1, [p for p in self.players if not self.is_declarer_side(p)]
+        self.result = (team, declarer_tricks, required_tricks)
+        self._record_match_result(winners)
+        await self.chat_handler.game_winners(
+            team, winners, declarer_tricks, required_tricks, self
+        )
         # end of game.. exiting..
+        self.final_players = self.players
         self.players = []
         await self._notify_complete()
 
@@ -445,6 +466,27 @@ class BridgeGame:
             current = StringUtils().bid_id_to_str(self.contract)
             raise InvalidBidError(f'You must bid higher than {current}, or pass.')
 
+    def can_call_wash(self, player):
+        '''
+        A wash may be called on your first turn of the auction, with a weak hand.
+        '''
+        return (
+            self.state == GameState.AUCTION
+            and player is self.curr_player()
+            and player.id not in self.auction_acted
+            and player.hand_score(player.hand) <= WASH_MAX_POINTS
+        )
+
+    async def call_wash(self, player):
+        if not self.can_call_wash(player):
+            raise InvalidBidError(
+                f'You can only call a wash on your first bid, with {WASH_MAX_POINTS} '
+                'points or fewer.'
+            )
+        self.note_activity(player)
+        await self.chat_handler.wash_called(player, player.hand_score(player.hand), self)
+        await self._redeal()
+
     async def make_bid(self, player, bid):
         if self.state != GameState.AUCTION or player is not self.curr_player():
             raise InvalidBidError('You cannot bid right now. Wait for your turn.')
@@ -453,19 +495,16 @@ class BridgeGame:
         await self.process_bid(bid)
 
     async def process_bid(self, bid):
+        bidder = self.curr_player()
+        if bid == -1 or bid > self.contract:
+            self.auction_acted.add(bidder.id)
+            self.auction_log.append((bidder.disp_name(), bid))
         if bid == -1:
             self.consecutive_passes += 1
             await self.chat_handler.player_passed(self.curr_player(), self)
             if self.contract == -1 and self.consecutive_passes == 4:
                 # Four opening passes: redeal and restart auction from North.
-                self.action_seq += 1
-                self.consecutive_passes = 0
-                self.turn = 0
-                self.contract = -1
-                self.declarer = self.curr_player()
-                self.deal_hands()
-                await self.show_hands()
-                await self.get_next_bid()
+                await self._redeal()
                 return
             await self.next_turn()
         elif bid > self.contract:
@@ -492,6 +531,10 @@ class BridgeGame:
             await self.chat_handler.request_bid(self.curr_player(), self)
             self._arm_idle_timer()
         else:
+            if self.can_call_wash(self.curr_player()):
+                await asyncio.sleep(self.bot_pause)
+                await self.call_wash(self.curr_player())
+                return
             bid = self.curr_player().make_auto_bid(self.contract)
             if bid != -1 and bid <= self.contract:
                 # Never let a bad bot bid stall the auction.
@@ -596,9 +639,12 @@ class BridgeGame:
         self.trick.append(card)
         if card.suit == self.get_trump_suit():
             self.trump_broken = 1
-        if self.partner_card is not None and card.id == self.partner_card.id:
+        revealed = self.partner_card is not None and card.id == self.partner_card.id
+        if revealed:
             self.partner_revealed = True
         await self.chat_handler.card_played(player, card, self)
+        if revealed:
+            await self.chat_handler.partner_revealed(player, self)
         await self.next_turn()
 
     def legal_cards(self, player):

@@ -1,8 +1,35 @@
 import asyncio
+from dataclasses import dataclass
 
 from sgbridgebot.BridgeGame import BOT_PAUSE, BridgeGame
-from sgbridgebot.errors import AlreadyInGameError, NotInGameError
+from sgbridgebot.errors import AlreadyInGameError, GameError, NotInGameError
 from sgbridgebot.game_types import GameState, GameType
+
+# Finished tables remembered for "Deal again"; the oldest are forgotten first.
+MAX_REMATCH_OFFERS = 500
+
+
+@dataclass
+class RematchOffer:
+    '''
+    A finished table whose players can deal another hand together.
+    seats lists (user id, chat id) per seat, with None as the user id for bots.
+    '''
+    game_type: GameType
+    seats: list
+    match_scores: dict
+    match_names: dict
+    hands_played: int
+    next_game: BridgeGame | None = None
+
+    def chat_id_for(self, user_id):
+        for seat_user_id, chat_id in self.seats:
+            if seat_user_id == user_id:
+                return chat_id
+        return None
+
+    def bot_seats(self):
+        return sum(1 for user_id, _ in self.seats if user_id is None)
 
 
 class GameManager:
@@ -24,6 +51,7 @@ class GameManager:
         find_game(player, chat_id):
         leave_game(player): returns the BridgeGame left, raises NotInGameError otherwise
         update_gamelists(): when game state is changed, call to move games to appropriate lists
+        rematch(user, short_id): seats a player from a finished table at its next hand
         """
 
         # Initial bot state contains empty game list
@@ -34,6 +62,7 @@ class GameManager:
             self.turn_timeout = turn_timeout
             self.bot_pause = bot_pause
             self.lock = asyncio.Lock()
+            self.rematch_offers = {}  # short id of a finished game -> RematchOffer
 
         def create_game(self, type, num_bots=0):
             g = BridgeGame(
@@ -59,6 +88,60 @@ class GameManager:
             for g in self.active_games:
                 if game_id == g.id:
                     self.active_games.remove(g)
+                    if g.result is not None:
+                        self._offer_rematch(g)
+                    return
+
+        def _offer_rematch(self, game):
+            seats = [(None if p.is_bot else p.id, p.chat_id) for p in game.final_players]
+            if all(user_id is None for user_id, _ in seats):
+                return
+            self.rematch_offers[game.short_id] = RematchOffer(
+                game_type=game.type,
+                seats=seats,
+                match_scores=dict(game.match_scores),
+                match_names=dict(game.match_names),
+                hands_played=game.hands_played,
+            )
+            while len(self.rematch_offers) > MAX_REMATCH_OFFERS:
+                self.rematch_offers.pop(next(iter(self.rematch_offers)))
+
+        async def rematch(self, user, short_id):
+            '''
+            Seats a player from a finished table at that table's next hand.
+            The first player back opens the lobby, with bots in the bot seats;
+            the hand starts once every human is back, or on /forcestart.
+            '''
+            async with self.lock:
+                offer = self.rematch_offers.get(short_id)
+                if offer is None:
+                    raise GameError('That table has closed. Use /join for a new game.')
+                chat_id = offer.chat_id_for(user.id)
+                if chat_id is None:
+                    raise GameError('Only players from that table can deal again.')
+                game = offer.next_game
+                if game is not None and game.get_player(user.id) is not None:
+                    raise AlreadyInGameError('You are already back at the table.')
+                if self.games_for_user(user.id):
+                    raise AlreadyInGameError()
+                is_new = game is None or game not in self.waiting_games
+                if is_new:
+                    game = self.create_game(offer.game_type)
+                    game.match_scores = dict(offer.match_scores)
+                    game.match_names = dict(offer.match_names)
+                    game.hands_played = offer.hands_played
+                    offer.next_game = game
+                assert game is not None
+                try:
+                    async with game.lock:
+                        await game.add_player(user, chat_id)
+                        if is_new:
+                            for _ in range(offer.bot_seats()):
+                                if game.num_players() < 4:
+                                    await game.add_bot()
+                finally:
+                    self.update_gamelists()
+                return game
 
         async def join_game(self, player, chat):
             async with self.lock:

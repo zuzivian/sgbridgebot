@@ -73,6 +73,12 @@ class MockChatHandler:
     async def player_timed_out(self, player, game, handed_over):
         self.events.append(("player_timed_out", player.id, handed_over))
 
+    async def wash_called(self, player, points, game):
+        self.events.append(("wash_called", player.id, points))
+
+    async def partner_revealed(self, player, game):
+        self.events.append(("partner_revealed", player.id))
+
     async def partner_chosen(self, player, card_id, game):
         self.partner_payload = {
             "player_id": player.id,

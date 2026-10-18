@@ -335,3 +335,101 @@ def test_start_and_help_commands_return_guidance_text():
 
     assert "Quick start" in start.message.replies[0]
     assert "Commands" in help_update.message.replies[0]
+
+
+async def _finish_hand(game, declarer_tricks=7):
+    game.state = GameState.PLAY
+    game.contract = 0
+    game.declarer = game.players[0]
+    game.partner = game.players[2]
+    game.partner_card = game.players[2].hand[0]
+    game.declarer.tricks_won = declarer_tricks
+    game.players[1].tricks_won = 13 - declarer_tricks
+    game.tricks_played = 13
+    async with game.lock:
+        await game.end_game()
+
+
+def test_finished_hand_offers_deal_again_and_keeps_table_score():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game)
+        recap = chat.sent[-1]
+        taps = []
+        for user in users:
+            update = callback_update(user, f"r:{game.short_id}:0")
+            await utils.callback(update, None)
+            taps.append(update)
+        return manager, game, recap, taps
+
+    manager, old_game, recap, taps = run(scenario())
+    _, text, markup = recap
+    assert "made 1♣: 7 of the 7 required tricks" in text
+    assert "Hands won at this table (1 hand)" in text
+    assert [b.text for row in markup.inline_keyboard for b in row] == ["🔁 Deal again"]
+    assert all(answer_text(t) == "You are back at the table." for t in taps)
+    new_game = manager.active_games[0]
+    assert new_game is not old_game
+    assert new_game.hands_played == 1
+    assert new_game.match_scores == {1: 1, 2: 0, 3: 1, 4: 0}
+    assert {p.id for p in new_game.players} == {1, 2, 3, 4}
+
+
+def test_deal_again_refuses_strangers_repeats_and_closed_tables():
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        await _finish_hand(game, declarer_tricks=3)
+        first = callback_update(users[0], f"r:{game.short_id}:0")
+        await utils.callback(first, None)
+        again = callback_update(users[0], f"r:{game.short_id}:0")
+        await utils.callback(again, None)
+        stranger = callback_update(make_user(99), f"r:{game.short_id}:0")
+        await utils.callback(stranger, None)
+        closed = callback_update(users[1], "r:deadbeef:0")
+        await utils.callback(closed, None)
+        return manager, again, stranger, closed
+
+    manager, again, stranger, closed = run(scenario())
+    assert answer_text(again) == "You are already back at the table."
+    assert answer_text(stranger) == "Only players from that table can deal again."
+    assert "closed" in answer_text(closed)
+    assert len(manager.waiting_games) == 1
+
+
+def test_deal_again_with_bots_starts_when_the_only_human_returns():
+    async def scenario():
+        chat = RecordingChat()
+        manager = GameManager(chat, bot_pause=0)
+        utils = CommandUtils(manager, chat)
+        user = make_user(1)
+        await utils.join(message_update(user, GROUP_ID, "group", "/join"), None)
+        await utils.forcestart(message_update(user, GROUP_ID, "group", "/forcestart"), None)
+        game = manager.active_games[0]
+        await _finish_hand(game)
+        await utils.callback(callback_update(user, f"r:{game.short_id}:0"), None)
+        return manager
+
+    manager = run(scenario())
+    assert len(manager.active_games) == 1
+    assert sum(p.is_bot for p in manager.active_games[0].players) == 3
+
+
+def test_wash_by_button_and_by_text(monkeypatch):
+    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 3)
+
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        markup = chat.sent[-1][2]
+        seq = game.action_seq
+        await utils.callback(callback_update(users[0], f"w:{game.short_id}:{seq}"), None)
+        # Seat 0 deals again and may wash again; East may not wash out of turn.
+        typed = message_update(users[1], users[1].id, "private", "wash")
+        await utils.wash(typed, None)
+        return chat, markup, game, seq, typed
+
+    chat, markup, game, seq, typed = run(scenario())
+    labels = [b.text for row in markup.inline_keyboard for b in row]
+    assert "🔄 Wash" in labels
+    assert any("called a wash with 3 point(s)" in text for _, text, _ in chat.sent)
+    assert game.action_seq > seq
+    assert "only call a wash" in typed.message.replies[0]
