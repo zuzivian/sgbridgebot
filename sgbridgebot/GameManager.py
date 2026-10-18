@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from dataclasses import dataclass
 
 from sgbridgebot.BridgeGame import BOT_PAUSE, BridgeGame
 from sgbridgebot.errors import AlreadyInGameError, GameError, NotInGameError
 from sgbridgebot.game_types import GameState, GameType
+
+logger = logging.getLogger(__name__)
 
 # Finished tables remembered for "Deal again"; the oldest are forgotten first.
 MAX_REMATCH_OFFERS = 500
@@ -55,8 +58,9 @@ class GameManager:
         """
 
         # Initial bot state contains empty game list
-        def __init__(self, handler, turn_timeout=None, bot_pause=BOT_PAUSE):
+        def __init__(self, handler, turn_timeout=None, bot_pause=BOT_PAUSE, stats=None):
             self.waiting_games = []
+            self.stats = stats  # StatsStore, or None to keep no records
             self.active_games = []
             self.chat_handler = handler
             self.turn_timeout = turn_timeout
@@ -90,7 +94,17 @@ class GameManager:
                     self.active_games.remove(g)
                     if g.result is not None:
                         self._offer_rematch(g)
+                        self._record_stats(g)
                     return
+
+        def _record_stats(self, game):
+            if self.stats is None:
+                return
+            try:
+                self.stats.record_hand(game)
+            except Exception:
+                # Losing a stats row must never break the game itself.
+                logger.exception('Could not record stats for game %s', game.id)
 
         def _offer_rematch(self, game):
             seats = [(None if p.is_bot else p.id, p.chat_id) for p in game.final_players]

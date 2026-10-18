@@ -58,7 +58,8 @@ class CommandUtils:
                 "• /join — join a game lobby\n"
                 "• /leave — leave your current game (a bot takes your seat)\n"
                 "• /hand — show your hand (private chat only)\n"
-                "• /forcestart — fill missing seats with bots\n\n"
+                "• /forcestart — fill missing seats with bots\n"
+                "• /stats — your record · /leaderboard — best players here\n\n"
                 "Tap the buttons to play. You can also type:\n"
                 "• Bid: PASS, 1NT, 1♣, 1C\n"
                 "• Card: ♣2, ♠A, C10, SA\n"
@@ -126,6 +127,23 @@ class CommandUtils:
                     return
 
         await self.reply_text(update, NOT_IN_GAME)
+
+    async def stats(self, update, context):
+        store = self.manager.stats
+        record = store.player_stats(update.message.from_user.id) if store else None
+        if record is None:
+            await self.reply_text(update, 'No finished hands yet. Use /join to play one!')
+            return
+        await self.reply_text(update, self.chat.str_utils.player_stats(record))
+
+    async def leaderboard(self, update, context):
+        store = self.manager.stats
+        chat = update.effective_chat
+        in_group = chat.type != 'private'
+        rows = store.leaderboard(chat.id if in_group else None) if store else []
+        await self.reply_text(
+            update, self.chat.str_utils.leaderboard(rows, 'this group' if in_group else 'everyone')
+        )
 
     async def _find_text_game(self, update):
         '''

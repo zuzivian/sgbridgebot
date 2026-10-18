@@ -433,3 +433,30 @@ def test_wash_by_button_and_by_text(monkeypatch):
     assert any("called a wash with 3 point(s)" in text for _, text, _ in chat.sent)
     assert game.action_seq > seq
     assert "only call a wash" in typed.message.replies[0]
+
+
+def test_stats_and_leaderboard_commands():
+    from sgbridgebot.stats import StatsStore
+
+    async def scenario():
+        utils, manager, chat, users, game = await started()
+        manager.stats = StatsStore()
+        empty = message_update(users[0], users[0].id, "private", "/stats")
+        await utils.stats(empty, None)
+        for _ in range(3):
+            await _finish_hand(game)
+            for user in users:
+                await utils.callback(callback_update(user, f"r:{game.short_id}:0"), None)
+            game = manager.active_games[0]
+        mine = message_update(users[0], users[0].id, "private", "/stats")
+        await utils.stats(mine, None)
+        board = message_update(users[1], users[1].id, "private", "/leaderboard")
+        await utils.leaderboard(board, None)
+        return empty, mine, board
+
+    empty, mine, board = run(scenario())
+    assert "No finished hands yet" in empty.message.replies[0]
+    assert "u1: 3 of 3 hands won (100%)" in mine.message.replies[0]
+    assert "3/3 contracts made as declarer" in mine.message.replies[0]
+    assert "Leaderboard for everyone" in board.message.replies[0]
+    assert "🥇" in board.message.replies[0]

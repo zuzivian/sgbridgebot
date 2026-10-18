@@ -15,16 +15,20 @@ from telegram.ext import (
 from sgbridgebot.ChatHandler import ChatHandler
 from sgbridgebot.CommandUtils import CommandUtils
 from sgbridgebot.GameManager import GameManager
+from sgbridgebot.stats import open_store
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TURN_TIMEOUT = 30.0
+DEFAULT_DATABASE_PATH = 'sgbridgebot.db'
 
 BOT_COMMANDS = [
     ('join', 'Join a game lobby'),
     ('leave', 'Leave your current game'),
     ('hand', 'Show your hand (private chat)'),
     ('forcestart', 'Fill empty seats with bots'),
+    ('stats', 'Your record'),
+    ('leaderboard', 'Best players here'),
     ('help', 'Commands and how to play'),
 ]
 
@@ -143,9 +147,15 @@ def _resolve_turn_timeout():
     return timeout or None
 
 
+def _resolve_database_path():
+    """Return where finished hands are stored; ':memory:' keeps nothing on disk."""
+    return os.environ.get('DATABASE_PATH', '').strip() or DEFAULT_DATABASE_PATH
+
+
 class ChatBot:
 
-    def __init__(self, token, request=None, turn_timeout=None, bot_pause=None):
+    def __init__(self, token, request=None, turn_timeout=None, bot_pause=None,
+                 database_path=None):
         builder = (
             ApplicationBuilder()
             .token(token)
@@ -159,8 +169,12 @@ class ChatBot:
         self.application = builder.build()
         self.token = token
         self.chat_handler = ChatHandler(self.application.bot)
+        self.stats = open_store(
+            _resolve_database_path() if database_path is None else database_path
+        )
         manager_kwargs = {
             'turn_timeout': _resolve_turn_timeout() if turn_timeout is None else turn_timeout,
+            'stats': self.stats,
         }
         if bot_pause is not None:
             manager_kwargs['bot_pause'] = bot_pause
@@ -181,6 +195,7 @@ class ChatBot:
         if chat_ids:
             logger.info('Sending restart notice to %s chats', len(chat_ids))
             await self.chat_handler.notify_restart(chat_ids)
+        self.stats.close()
 
     async def error_callback(self, update, context):
         if isinstance(context.error, TimedOut):
@@ -253,3 +268,7 @@ class ChatBot:
         self.application.add_handler(CommandHandler('join', self.cmd_utils.join))
         self.application.add_handler(CommandHandler('leave', self.cmd_utils.leave))
         self.application.add_handler(CommandHandler('hand', self.cmd_utils.hand))
+        self.application.add_handler(CommandHandler('stats', self.cmd_utils.stats))
+        self.application.add_handler(
+            CommandHandler('leaderboard', self.cmd_utils.leaderboard)
+        )

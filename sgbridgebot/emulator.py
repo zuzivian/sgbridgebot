@@ -326,7 +326,7 @@ class Emulator:
         self.server = FakeTelegram(self.transcript)
         # A turn_timeout of 0 switches the idle timer off.
         self.bot = ChatBot(TOKEN, request=self.server, turn_timeout=turn_timeout or 0,
-                           bot_pause=bot_pause)
+                           bot_pause=bot_pause, database_path=':memory:')
         self.app = self.bot.application
         self.update_ids = itertools.count(1)
         self.callback_ids = itertools.count(1)

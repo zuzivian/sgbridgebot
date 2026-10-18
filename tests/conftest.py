@@ -88,6 +88,12 @@ class MockChatHandler:
         self.events.append(("partner_chosen", player.id, card_id, game.id))
 
 
+@pytest.fixture(autouse=True)
+def stats_in_memory(monkeypatch):
+    # A ChatBot built in a test must not leave a database file behind.
+    monkeypatch.setenv("DATABASE_PATH", ":memory:")
+
+
 @pytest.fixture
 def mock_handler():
     return MockChatHandler()

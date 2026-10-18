@@ -98,7 +98,20 @@ BOT_MODE=polling python3 -m sgbridgebot.main
   empty seats with bots
 + Turn timer (30s by default): if a player runs out of time a move is made for
   them, and after 3 missed turns in a row a bot takes over their seat
-+ Players will be dealt a hand of 13 cards at random
++ Players will be dealt a hand of 13 cards at random. A player whose hand is
+  worth 4 points or fewer (A=4, K=3, Q=2, J=1, plus 1 per card beyond four in
+  a suit) may call a wash on their first bid to have the cards redealt
++ The bid prompt shows the auction so far. When the partner card is played the
+  table is told who the partner is, and trick counts switch to each side's
+  total against its target
++ Bots bid on a points ladder, call the highest missing trump as partner, and
+  avoid ruffing a trick their own side is winning. `python -m
+  sgbridgebot.benchmark --games 500` plays bot-only games and reports how
+  they do
++ The end-of-hand recap has a Deal again button: the same table plays another
+  hand and keeps a running score
++ `/stats` shows your record and `/leaderboard` the best win rates (in a group,
+  for that group). Finished hands are stored in SQLite (`DATABASE_PATH`)
 + Players tap inline buttons to bid, call a partner card (suit, then rank) and
   play a card; only legal bids and cards are offered. Typed input such as
   `1NT`, `SA` or `pass` still works
@@ -149,6 +162,10 @@ Before starting the bot in production, set the following environment variables:
 - `TELEGRAM_WEBHOOK_SECRET`: Optional Telegram webhook secret token used to validate inbound webhook requests.
   - If set, it must be non-empty and must not contain leading/trailing whitespace.
 - `TURN_TIMEOUT_SECONDS`: Optional seconds each player has per turn. Defaults to `30`; `0` turns the timer off.
+- `DATABASE_PATH`: Optional SQLite file for finished hands (`/stats`, `/leaderboard`). Defaults to
+  `sgbridgebot.db` in the working directory; `:memory:` keeps nothing on disk. On platforms with an
+  ephemeral filesystem (Koyeb, Render free tier), point it at a mounted volume or stats reset on
+  every redeploy.
 
 The webhook URL is constructed at startup as `<resolved_base_url>/<TELEGRAM_BOT_TOKEN>`.
 When `TELEGRAM_WEBHOOK_SECRET` is configured, startup passes it to Telegram via
