@@ -821,7 +821,7 @@ async def run_scenarios(seed=1, games=0, echo=False):
         started = time.monotonic()
         try:
             if scenario is scenario_random_games:
-                await scenario(rng, echo=echo, games=games)
+                await scenario_random_games(rng, echo=echo, games=games)
             else:
                 await scenario(rng, echo=echo)
             results.append((name, True, f'{time.monotonic() - started:.1f}s'))
