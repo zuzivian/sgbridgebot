@@ -5,7 +5,7 @@ Plays bot-only games through the real BridgeGame engine, with no Telegram
 involved, and reports how the bots bid and play. Every card a bot plays is
 checked against the rules, so this also works as a fuzz test of the bot AI.
 
-    python -m sgbridgebot.benchmark --games 500 --seed 1
+    python -m tools.benchmark --games 500 --seed 1
 '''
 
 import argparse
@@ -14,8 +14,8 @@ import random
 from collections import Counter
 from dataclasses import dataclass, field
 
-from sgbridgebot.BridgeGame import BridgeGame
-from sgbridgebot.BridgePlayer import BridgePlayer
+from sgbridgebot.bridge_game import BridgeGame
+from sgbridgebot.bridge_player import BridgePlayer
 from sgbridgebot.game_types import GameType
 
 

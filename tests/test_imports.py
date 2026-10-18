@@ -7,8 +7,8 @@ def test_core_modules_importable():
     modules = [
         "sgbridgebot",
         "sgbridgebot.main",
-        "sgbridgebot.ChatBot",
-        "sgbridgebot.ChatHandler",
+        "sgbridgebot.chat_bot",
+        "sgbridgebot.chat_handler",
     ]
 
     for module in modules:

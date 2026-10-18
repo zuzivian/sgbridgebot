@@ -5,8 +5,8 @@ import uuid
 
 from telegram import User
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgePlayer import BridgePlayer
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_player import BridgePlayer
 from sgbridgebot.errors import (
     AlreadyInGameError,
     GameFullError,
@@ -15,7 +15,7 @@ from sgbridgebot.errors import (
     NotInGameError,
 )
 from sgbridgebot.game_types import IN_PROGRESS_STATES, GameState, GameType
-from sgbridgebot.StringUtils import StringUtils
+from sgbridgebot.string_utils import StringUtils
 
 BOT_PAUSE = 0.5
 # A player whose hand is worth this many points or fewer may call a wash (redeal).

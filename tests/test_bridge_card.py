@@ -1,6 +1,6 @@
 import pytest
 
-from sgbridgebot.BridgeCard import BridgeCard
+from sgbridgebot.bridge_card import BridgeCard
 
 
 def test_bridge_card_maps_rank_and_suit_and_repr():

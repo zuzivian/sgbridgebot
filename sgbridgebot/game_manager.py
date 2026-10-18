@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 
-from sgbridgebot.BridgeGame import BOT_PAUSE, BridgeGame
+from sgbridgebot.bridge_game import BOT_PAUSE, BridgeGame
 from sgbridgebot.errors import AlreadyInGameError, GameError, NotInGameError
 from sgbridgebot.game_types import GameState, GameType
 

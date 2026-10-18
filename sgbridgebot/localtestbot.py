@@ -11,7 +11,7 @@ if __package__ in (None, ""):
 import logging
 import os
 
-from sgbridgebot.ChatBot import ChatBot
+from sgbridgebot.chat_bot import ChatBot
 
 '''
 localtestbot.py

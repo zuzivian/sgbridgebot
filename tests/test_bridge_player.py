@@ -1,5 +1,5 @@
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgePlayer import BridgePlayer
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_player import BridgePlayer
 
 
 class DummyGame:
@@ -24,7 +24,7 @@ def test_player_to_bot_sets_boolean_flag(monkeypatch):
     player = BridgePlayer()
     player.is_bot = False
 
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.random.randint", lambda a, b: 123)
+    monkeypatch.setattr("sgbridgebot.bridge_player.random.randint", lambda a, b: 123)
     player.player_to_bot()
 
     assert isinstance(player.is_bot, bool)

@@ -106,9 +106,9 @@ BOT_MODE=polling python3 -m sgbridgebot.main
   table is told who the partner is, and trick counts switch to each side's
   total against its target
 + Bots bid on a points ladder, call the highest missing trump as partner, and
-  avoid ruffing a trick their own side is winning. `python -m
-  sgbridgebot.benchmark --games 500` plays bot-only games and reports how
-  they do
+  avoid ruffing a trick their own side is winning.
+  `python -m tools.benchmark --games 500` plays bot-only games and reports
+  how they do
 + The end-of-hand recap has a Deal again button: the same table plays another
   hand and keeps a running score
 + `/stats` shows your record and `/leaderboard` the best win rates (in a group,
@@ -214,7 +214,7 @@ Suggested setup path:
 
 ## Playtesting without Telegram (emulator)
 
-`sgbridgebot/emulator.py` plays the bot end to end with no Telegram account,
+`tools/emulator.py` plays the bot end to end with no Telegram account,
 token or network. A fake Bot API server plugs into python-telegram-bot as its
 HTTP layer, so the real application, handlers and keyboards run unchanged. The
 fake server keeps every message the bot sends and rejects what Telegram would
@@ -224,16 +224,16 @@ started the bot, and edits that change nothing.
 ```bash
 # Run every scripted scenario (group, private-chat matchmaking, bots, idle
 # players, leaving on your turn, all-trump lead, two tables at once, restart)
-python -m sgbridgebot.emulator
+python -m tools.emulator
 
 # Also play 25 random full games, with players tapping wrong and old buttons
-python -m sgbridgebot.emulator --games 25 --seed 3
+python -m tools.emulator --games 25 --seed 3
 
 # Print the whole chat log
-python -m sgbridgebot.emulator --transcript
+python -m tools.emulator --transcript
 
 # Play by hand: say alice group /join, tap alice 1NT, auto, ...
-python -m sgbridgebot.emulator --interactive
+python -m tools.emulator --interactive
 ```
 
 The scenarios also run in the test suite (`tests/test_emulator_playtest.py`).

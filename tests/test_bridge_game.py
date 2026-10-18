@@ -3,8 +3,8 @@ import asyncio
 
 import pytest
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import BridgeGame, MAX_IDLE_STRIKES, WASH_MAX_POINTS
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_game import BridgeGame, MAX_IDLE_STRIKES, WASH_MAX_POINTS
 from sgbridgebot.errors import AlreadyInGameError, InvalidBidError, InvalidPlayError
 from sgbridgebot.game_types import GameState, GameType
 
@@ -131,7 +131,7 @@ def test_all_pass_auction_redeals_and_requests_bid_again(mock_handler, make_user
         values[:] = values[shift:] + values[:shift]
         shuffle_calls["count"] += 1
 
-    monkeypatch.setattr("sgbridgebot.BridgeGame.random.shuffle", deterministic_shuffle)
+    monkeypatch.setattr("sgbridgebot.bridge_game.random.shuffle", deterministic_shuffle)
 
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
@@ -215,7 +215,7 @@ def test_start_game_never_redeals_on_its_own(mock_handler, make_user, monkeypatc
         original_deal_hands(self)
 
     monkeypatch.setattr(BridgeGame, "deal_hands", counted_deal_hands)
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 0)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 0)
 
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
@@ -226,7 +226,7 @@ def test_start_game_never_redeals_on_its_own(mock_handler, make_user, monkeypatc
 
 def test_weak_hand_may_call_wash_on_first_turn(mock_handler, make_user, monkeypatch):
     monkeypatch.setattr(
-        "sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: WASH_MAX_POINTS
+        "sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: WASH_MAX_POINTS
     )
     game = asyncio.run(_build_started_game(mock_handler, make_user))
     old_hands = [[c.id for c in p.hand] for p in game.players]
@@ -242,7 +242,7 @@ def test_weak_hand_may_call_wash_on_first_turn(mock_handler, make_user, monkeypa
 
 
 def test_wash_refused_after_acting_or_with_a_good_hand(mock_handler, make_user, monkeypatch):
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 2)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 2)
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 
     asyncio.run(game.make_bid(game.players[0], -1))
@@ -254,7 +254,7 @@ def test_wash_refused_after_acting_or_with_a_good_hand(mock_handler, make_user, 
     with pytest.raises(InvalidBidError):
         asyncio.run(game.call_wash(game.players[0]))
 
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 5)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 5)
     with pytest.raises(InvalidBidError):
         asyncio.run(game.call_wash(game.players[1]))
 
@@ -269,7 +269,7 @@ def test_bot_with_weak_hand_calls_wash(mock_handler, make_user, monkeypatch):
             washed = any(evt[0] == "wash_called" for evt in mock_handler.events)
             return 0 if self.is_bot and not washed else 20
 
-        monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", score)
+        monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", score)
         await game.add_player(make_user(9, username="u9"), 109)
         return game
 
@@ -313,7 +313,7 @@ def test_start_game_deals_once_when_no_wash(mock_handler, make_user, monkeypatch
         original_deal_hands(self)
 
     monkeypatch.setattr(BridgeGame, "deal_hands", counted_deal_hands)
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 10)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 10)
 
     game = asyncio.run(_build_started_game(mock_handler, make_user))
 

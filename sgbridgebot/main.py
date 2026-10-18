@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from sgbridgebot.ChatBot import ChatBot
+from sgbridgebot.chat_bot import ChatBot
 
 '''
 sgbridgebot.py

@@ -1,7 +1,7 @@
 import asyncio
 
-from sgbridgebot.BridgeGame import BridgeGame
-from sgbridgebot.GameManager import GameManager
+from sgbridgebot.bridge_game import BridgeGame
+from sgbridgebot.game_manager import GameManager
 from sgbridgebot.game_types import GameState, GameType
 
 

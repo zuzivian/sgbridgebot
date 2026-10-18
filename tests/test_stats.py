@@ -1,6 +1,6 @@
 import asyncio
 
-from sgbridgebot.BridgeGame import BridgeGame
+from sgbridgebot.bridge_game import BridgeGame
 from sgbridgebot.game_types import GameType
 from sgbridgebot.stats import LEADERBOARD_MIN_HANDS, StatsStore
 

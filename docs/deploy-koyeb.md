@@ -5,7 +5,7 @@ This is the **recommended path** for this project because it supports a stable H
 ## Why this path
 - Telegram webhooks require a public **HTTPS** URL.
 - Koyeb web services expose stable HTTPS URLs and bind to the `$PORT` runtime variable.
-- The bot already starts a webhook server on `0.0.0.0:$PORT` in `sgbridgebot/main.py` + `sgbridgebot/ChatBot.py`.
+- The bot already starts a webhook server on `0.0.0.0:$PORT` in `sgbridgebot/main.py` + `sgbridgebot/chat_bot.py`.
 
 ## 1) Create the app/service
 1. Push this repo to GitHub.

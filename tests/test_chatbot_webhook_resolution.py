@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 
 from sgbridgebot import main
-from sgbridgebot.ChatBot import (
+from sgbridgebot.chat_bot import (
     ChatBot,
     _resolve_webhook_base_url,
     _resolve_webhook_listen_port,
@@ -101,7 +101,7 @@ def _build_chatbot_with_mocked_app(monkeypatch):
     for method in ("token", "concurrent_updates", "post_init", "post_stop"):
         getattr(builder, method).return_value = builder
     builder.build.return_value = app
-    monkeypatch.setattr("sgbridgebot.ChatBot.ApplicationBuilder", mock.Mock(return_value=builder))
+    monkeypatch.setattr("sgbridgebot.chat_bot.ApplicationBuilder", mock.Mock(return_value=builder))
 
     bot = ChatBot("token-123")
     return bot, app

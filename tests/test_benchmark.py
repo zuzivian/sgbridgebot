@@ -1,6 +1,6 @@
 import asyncio
 
-from sgbridgebot import benchmark
+from tools import benchmark
 
 
 def test_bot_only_games_finish_with_legal_moves():

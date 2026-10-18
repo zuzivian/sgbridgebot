@@ -4,10 +4,10 @@ from unittest import mock
 
 from telegram import User
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.ChatHandler import ChatHandler
-from sgbridgebot.CommandUtils import NOT_IN_GAME, CommandUtils
-from sgbridgebot.GameManager import GameManager
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.chat_handler import ChatHandler
+from sgbridgebot.command_utils import NOT_IN_GAME, CommandUtils
+from sgbridgebot.game_manager import GameManager
 from sgbridgebot.game_types import GameState, GameType
 
 GROUP_ID = -500
@@ -415,7 +415,7 @@ def test_deal_again_with_bots_starts_when_the_only_human_returns():
 
 
 def test_wash_by_button_and_by_text(monkeypatch):
-    monkeypatch.setattr("sgbridgebot.BridgePlayer.BridgePlayer.hand_score", lambda self, hand: 3)
+    monkeypatch.setattr("sgbridgebot.bridge_player.BridgePlayer.hand_score", lambda self, hand: 3)
 
     async def scenario():
         utils, manager, chat, users, game = await started()

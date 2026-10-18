@@ -1,6 +1,6 @@
 import re
 
-from sgbridgebot.ChatBot import _build_input_regexes
+from sgbridgebot.chat_bot import _build_input_regexes
 
 
 def test_partner_call_two_step_tokens_are_accepted():

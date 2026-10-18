@@ -1,6 +1,6 @@
 import pytest
 
-from sgbridgebot.StringUtils import StringUtils
+from sgbridgebot.string_utils import StringUtils
 
 
 class FakePlayer:
@@ -80,8 +80,8 @@ def test_bid_and_card_inputs_support_emoji_variation_selector():
 
 
 def test_cards_in_hand_spells_out_suit_names():
-    from sgbridgebot.BridgeCard import BridgeCard
-    from sgbridgebot.BridgePlayer import BridgePlayer
+    from sgbridgebot.bridge_card import BridgeCard
+    from sgbridgebot.bridge_player import BridgePlayer
 
     player = BridgePlayer()
     player.hand = [BridgeCard(0), BridgeCard(12), BridgeCard(51)]

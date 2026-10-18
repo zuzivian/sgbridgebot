@@ -3,7 +3,7 @@ import random
 
 import pytest
 
-from sgbridgebot import emulator
+from tools import emulator
 
 
 @pytest.mark.parametrize("scenario", emulator.SCENARIOS, ids=lambda s: s.__name__)

@@ -1,6 +1,6 @@
 import logging
 
-from sgbridgebot.ChatHandler import HTML
+from sgbridgebot.chat_handler import HTML
 from sgbridgebot.errors import GameError, InvalidBidError, InvalidPlayError, NotInGameError
 from sgbridgebot.game_types import GameState
 from sgbridgebot.retry_utils import retry_on_timeout

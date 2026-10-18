@@ -14,10 +14,10 @@ itself).
 Emulator plays the human side: users type commands and text, and tap inline
 buttons. Scenario functions drive whole games and check that they finish.
 
-    python -m sgbridgebot.emulator                 # run every scenario
-    python -m sgbridgebot.emulator --games 25      # plus 25 random full games
-    python -m sgbridgebot.emulator --transcript    # print the chat log too
-    python -m sgbridgebot.emulator --interactive   # play by hand in a REPL
+    python -m tools.emulator                 # run every scenario
+    python -m tools.emulator --games 25      # plus 25 random full games
+    python -m tools.emulator --transcript    # print the chat log too
+    python -m tools.emulator --interactive   # play by hand in a REPL
 '''
 
 import argparse
@@ -39,8 +39,8 @@ if __package__ in (None, ""):
 from telegram import Update
 from telegram.request import BaseRequest
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.ChatBot import ChatBot
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.chat_bot import ChatBot
 from sgbridgebot.game_types import GameState, GameType
 
 BOT_ID = 4242

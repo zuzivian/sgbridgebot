@@ -9,11 +9,11 @@ from telegram import (
 )
 from telegram.error import BadRequest, Forbidden
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import MAX_IDLE_STRIKES, WASH_MAX_POINTS
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_game import MAX_IDLE_STRIKES, WASH_MAX_POINTS
 from sgbridgebot.game_types import GameType
 from sgbridgebot.retry_utils import retry_on_timeout
-from sgbridgebot.StringUtils import StringUtils
+from sgbridgebot.string_utils import StringUtils
 
 logger = logging.getLogger(__name__)
 

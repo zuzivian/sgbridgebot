@@ -13,9 +13,9 @@ from telegram.ext import (
     filters,
 )
 
-from sgbridgebot.ChatHandler import ChatHandler
-from sgbridgebot.CommandUtils import CommandUtils
-from sgbridgebot.GameManager import GameManager
+from sgbridgebot.chat_handler import ChatHandler
+from sgbridgebot.command_utils import CommandUtils
+from sgbridgebot.game_manager import GameManager
 from sgbridgebot.stats import open_store
 
 logger = logging.getLogger(__name__)

@@ -6,10 +6,10 @@ from types import SimpleNamespace
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, User
 from telegram.error import Forbidden, TimedOut
 
-from sgbridgebot.BridgeCard import BridgeCard
-from sgbridgebot.BridgeGame import BridgeGame
-from sgbridgebot.BridgePlayer import BridgePlayer
-from sgbridgebot.ChatHandler import ChatHandler
+from sgbridgebot.bridge_card import BridgeCard
+from sgbridgebot.bridge_game import BridgeGame
+from sgbridgebot.bridge_player import BridgePlayer
+from sgbridgebot.chat_handler import ChatHandler
 from sgbridgebot.game_types import GameState, GameType
 
 
